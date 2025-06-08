@@ -31,14 +31,14 @@ if CLIENT then
             surface.DrawRect(0, 0, w, h)
             surface.SetDrawColor(0, 120, 255, 255)
             surface.DrawOutlinedRect(0, 0, w, h, 4)
-            draw.SimpleText("SELECTOR DE PERSONAJE", "DermaDefaultBold", w/2, 15, Color(255, 255, 255), TEXT_ALIGN_CENTER, TEXT_ALIGN_CENTER)
+            draw.SimpleText("SELECTOR DE PERSONAJE", "DermaDefaultBold", w/2, 15, Color(200, 220, 255), TEXT_ALIGN_CENTER, TEXT_ALIGN_CENTER)
         end
         
         -- Botón de cierre
         local closeBtn = vgui.Create("DButton", panel)
         closeBtn:SetText("X")
         closeBtn:SetFont("DermaDefaultBold")
-        closeBtn:SetTextColor(Color(255, 255, 255))
+        closeBtn:SetTextColor(Color(200, 220, 255))
         closeBtn:SetSize(30, 30)
         closeBtn:SetPos(panel:GetWide() - 35, 5)
         closeBtn.Paint = function() end
@@ -54,18 +54,18 @@ if CLIENT then
         textLabel:SetText("Nombre:")
         textLabel:SetFont("DermaLarge")
         textLabel:SetSize(400, 60)
-        textLabel:SetTextColor(Color(255, 255, 255))
+        textLabel:SetTextColor(Color(200, 220, 255))
         textLabel:SetPos(80, 60)
         textLabel:SizeToContents()        
         local textEntry = vgui.Create("DTextEntry", panel)
         textEntry:SetPos(80, 105)
         textEntry:SetSize(300, 45)
         textEntry:SetFont("DermaLarge")
-        textEntry:SetTextColor(Color(255, 255, 255))
+        textEntry:SetTextColor(Color(200, 220, 255))
         textEntry.Paint = function(self, w, h)
-            surface.SetDrawColor(60, 60, 60, 200)
+            surface.SetDrawColor(40, 50, 60, 200)
             surface.DrawRect(0, 0, w, h)
-            self:DrawTextEntryText(Color(255, 255, 255), Color(30, 136, 229), Color(255, 255, 255))
+            self:DrawTextEntryText(Color(200, 220, 255), Color(30, 100, 200), Color(200, 220, 255))
         end
 
 
@@ -74,7 +74,7 @@ if CLIENT then
         textLabel:SetText("Genero:")
         textLabel:SetFont("DermaLarge")
         textLabel:SetSize(400, 60)
-        textLabel:SetTextColor(Color(255, 255, 255))
+        textLabel:SetTextColor(Color(200, 220, 255))
         textLabel:SetPos(80, 180)
         textLabel:SizeToContents()        
         local textEntry = vgui.Create("DComboBox", panel)
@@ -84,16 +84,136 @@ if CLIENT then
         textEntry:AddChoice("Masculino")
         textEntry:AddChoice("Femenino")
         textEntry:ChooseOptionID(1)
-        textEntry:SetTextColor(Color(255, 255, 255))
+        textEntry:SetTextColor(Color(200, 220, 255))
         textEntry.Paint = function(self, w, h)
-            surface.SetDrawColor(60, 60, 60, 200)
+            surface.SetDrawColor(40, 50, 60, 200)
             surface.DrawRect(0, 0, w, h)
-            self:DrawTextEntryText(Color(255, 255, 255), Color(30, 136, 229), Color(255, 255, 255))
+            self:DrawTextEntryText(Color(200, 220, 255), Color(30, 100, 200), Color(200, 220, 255))
         end
         local currentGender = "Masculino"
         local currentModelIndex = 1
         local currentModels = CHARACTER_CREATOR.Models[currentGender] or {}
         local modelPanel
+        
+        -- Variables para almacenar las selecciones de bodygroup
+        local bodygroupSelections = {
+            torso = 0,
+            legs = 0,
+            hands = 0,
+            headgear = 0
+        }
+
+        
+        -- Función para actualizar los bodygroups del modelo
+        local function UpdateBodygroups(entity)
+            if not IsValid(entity) then return end
+            
+            entity:SetBodygroup(1, bodygroupSelections.torso or 0)   -- torso
+            entity:SetBodygroup(2, bodygroupSelections.legs or 0)    -- legs
+            entity:SetBodygroup(3, bodygroupSelections.hands or 0)   -- hands
+            entity:SetBodygroup(4, bodygroupSelections.headgear or 0) -- headgear
+        end
+        
+        -- Función para crear controles de bodygroup
+        local function CreateBodygroupControls(parent, entity)
+            local container = vgui.Create("DPanel", parent)
+            container:SetSize(300, 250)
+            container:SetPos(parent:GetWide()/2 - 150, parent:GetTall() - 270)
+            container.Paint = function(self, w, h)
+                surface.SetDrawColor(20, 30, 45, 230)
+                surface.DrawRect(0, 0, w, h)
+                surface.DrawOutlinedRect(0, 0, w, h)
+            end
+            
+            -- Título
+            local title = vgui.Create("DLabel", container)
+            title:SetText("Personalización")
+            title:SetFont("DermaDefaultBold")
+            title:SetTextColor(Color(200, 220, 255))
+            title:SetFont("DermaLarge")
+            title:SetSize(380, 25)
+            title:SetPos(50, 5)
+            title:SizeToContents()
+            
+            -- Función para crear un control de bodygroup
+            local function CreateControl(y, name, bgId, max)
+                local bgPanel = vgui.Create("DPanel", container)
+                bgPanel:SetSize(250, 30)
+                bgPanel:SetPos(25, y+10)
+                bgPanel.Paint = function(self, w, h)
+                    draw.RoundedBox(4, 0, 0, w, h, Color(30, 40, 50, 200))
+                    surface.SetDrawColor(60, 80, 100, 150)
+                    surface.DrawOutlinedRect(0, 0, w, h, 1)
+                end
+                local label = vgui.Create("DLabel", bgPanel)
+                label:SetText(name .. ":")
+                label:SetTextColor(Color(200, 220, 255))
+                label:SetPos(5, 7)
+                label:SizeToContents()
+                
+                -- Botón izquierdo
+                local leftBtn = vgui.Create("DButton", bgPanel)
+                leftBtn:SetText("◀")
+                leftBtn:SetSize(30, 25)
+                leftBtn:SetTextColor(Color(200, 220, 255, 255))
+                leftBtn.Paint = function(self, w, h)
+                    draw.RoundedBox(4, 0, 0, w, h, Color(40, 80, 140, 200))
+                    if self:IsHovered() then
+                        draw.RoundedBox(4, 0, 0, w, h, Color(60, 120, 200, 200))
+                    end
+                end
+                leftBtn:SetPos(125, 2.5)
+                leftBtn.DoClick = function()
+                    bodygroupSelections[name:lower()] = (bodygroupSelections[name:lower()] - 1) % (max + 1)
+                    if bodygroupSelections[name:lower()] < 0 then 
+                        bodygroupSelections[name:lower()] = max 
+                    end
+                    UpdateBodygroups(entity)
+                end
+                
+                -- Valor actual
+                local valueLabel = vgui.Create("DLabel", bgPanel)
+                valueLabel:SetText("0")
+                valueLabel:SetTextColor(Color(200, 220, 255))
+                valueLabel:SetFont("DermaDefaultBold")
+                valueLabel:SetPos(155, 1)
+                valueLabel:SetSize(50, 25)
+                valueLabel:SetContentAlignment(5)
+                
+                -- Botón derecho
+                local rightBtn = vgui.Create("DButton", bgPanel)
+                rightBtn:SetText("▶")
+                rightBtn:SetSize(30, 25)
+                rightBtn:SetTextColor(Color(200, 220, 255, 255))
+                rightBtn.Paint = function(self, w, h)
+                    draw.RoundedBox(4, 0, 0, w, h, Color(40, 80, 140, 200))
+                    if self:IsHovered() then
+                        draw.RoundedBox(4, 0, 0, w, h, Color(60, 120, 200, 200))
+                    end
+                end
+                rightBtn:SetPos(205, 2.5)
+                rightBtn.DoClick = function()
+                    bodygroupSelections[name:lower()] = (bodygroupSelections[name:lower()] + 1) % (max + 1)
+                    UpdateBodygroups(entity)
+                end
+                
+                -- Actualizar etiqueta de valor
+                function bgPanel:Think()
+                    valueLabel:SetText(tostring(bodygroupSelections[name:lower()] or 0))
+                end
+                
+                return bgPanel
+            end
+            
+            -- Crear controles para cada bodygroup con más espacio entre ellos
+            CreateControl(40, "Torso", 1, 16)       -- torso: 0-16
+            CreateControl(90, "Legs", 2, 6)         -- legs: 0-6
+            CreateControl(140, "Hands", 3, 1)       -- hands: 0-1
+            CreateControl(190, "Headgear", 4, 4)    -- headgear: 0-4
+            
+            return container
+        end
+        
         modelPanel = vgui.Create("DModelPanel", panel)
         modelPanel:SetAnimated(false)
         modelPanel:SetSize(600, 600)
@@ -109,6 +229,7 @@ if CLIENT then
             if IsValid(modelPanel) and modelPanel:GetModel() ~= modelPath then
                 modelPanel:SetModel(modelPath)
                 
+                -- Configurar cámara
                 local mn, mx = modelPanel.Entity:GetRenderBounds()
                 local size = 0
                 size = math.max(size, math.abs(mn.x) + math.abs(mx.x))
@@ -116,6 +237,20 @@ if CLIENT then
                 size = math.max(size, math.abs(mn.z) + math.abs(mx.z))
                 modelPanel:SetCamPos(Vector(size, size, size/2))
                 modelPanel:SetLookAt((mn + mx) * 0.5)
+                
+                -- Crear controles de bodygroup después de cargar el modelo
+                timer.Simple(0.1, function()
+                    if not IsValid(modelPanel) or not IsValid(modelPanel.Entity) then return end
+                    
+                    -- Eliminar controles antiguos si existen
+                    if IsValid(modelPanel.BodygroupControls) then
+                        modelPanel.BodygroupControls:Remove()
+                    end
+                    
+                    -- Crear nuevos controles
+                    modelPanel.BodygroupControls = CreateBodygroupControls(panel, modelPanel.Entity)
+                    UpdateBodygroups(modelPanel.Entity)
+                end)
             end
         end
         
@@ -128,7 +263,7 @@ if CLIENT then
         leftArrow.Paint = function(self, w, h)
             surface.SetDrawColor(60, 60, 60, 200)
             surface.DrawRect(0, 0, w, h)
-            draw.SimpleText("❮", "DermaLarge", w/2, h/2, Color(255, 255, 255), TEXT_ALIGN_CENTER, TEXT_ALIGN_CENTER)
+            draw.SimpleText("❮", "DermaLarge", w/2, h/2, Color(200, 220, 255), TEXT_ALIGN_CENTER, TEXT_ALIGN_CENTER)
         end
         leftArrow.DoClick = function()
             currentModelIndex = currentModelIndex - 1
@@ -147,8 +282,8 @@ if CLIENT then
         rightArrow.Paint = function(self, w, h)
             surface.SetDrawColor(60, 60, 60, 200)
             surface.DrawRect(0, 0, w, h)
-            draw.SimpleText("❯", "DermaLarge", w/2, h/2, Color(255, 255, 255), TEXT_ALIGN_CENTER, TEXT_ALIGN_CENTER)
-        end
+            draw.SimpleText("❯", "DermaLarge", w/2, h/2, Color(200, 220, 255), TEXT_ALIGN_CENTER, TEXT_ALIGN_CENTER)
+                    end
         rightArrow.DoClick = function()
             currentModelIndex = currentModelIndex + 1
             if currentModelIndex > #currentModels then
@@ -167,7 +302,6 @@ if CLIENT then
         
         -- Cargar el modelo inicial
         UpdateModel()
-        
         
         self.Panel = panel
         return panel
