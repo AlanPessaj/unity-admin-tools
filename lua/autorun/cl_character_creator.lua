@@ -219,6 +219,7 @@ if CLIENT then
         modelPanel:SetSize(600, 600)
         modelPanel:SetPos(panel:GetWide()/2 - 300, panel:GetTall()/2 - 400)
         modelPanel:SetFOV(45)
+        modelPanel.LayoutEntity = function(self, ent) end        
         
         local function UpdateModel()
             if not currentModels or #currentModels == 0 then return end
@@ -228,6 +229,7 @@ if CLIENT then
             
             if IsValid(modelPanel) and modelPanel:GetModel() ~= modelPath then
                 modelPanel:SetModel(modelPath)
+                modelPanel.Entity:SetAngles(Angle(0, 45, 0))
                 
                 -- Configurar cámara
                 local mn, mx = modelPanel.Entity:GetRenderBounds()
