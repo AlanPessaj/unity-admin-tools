@@ -220,6 +220,29 @@ if CLIENT then
         modelPanel:SetPos(panel:GetWide()/2 - 300, panel:GetTall()/2 - 400)
         modelPanel:SetFOV(45)
         modelPanel.LayoutEntity = function(self, ent) end        
+
+        -- Botón Guardar
+        local saveBtn = vgui.Create("DButton", panel)
+        saveBtn:SetText("Guardar")
+        saveBtn:SetFont("DermaLarge")
+        saveBtn:SetSize(200, 50)
+        saveBtn:SetPos(panel:GetWide()/2 - 100, modelPanel:GetY() + modelPanel:GetTall() + 20)
+        saveBtn:SetTextColor(Color(200, 220, 255))
+        saveBtn.Paint = function(self, w, h)
+            surface.SetDrawColor(40, 80, 140, 220)
+            surface.DrawRect(0, 0, w, h)
+            if self:IsHovered() then
+                surface.SetDrawColor(60, 120, 200, 240)
+                surface.DrawRect(0, 0, w, h)
+            end
+            surface.SetDrawColor(0, 120, 255, 255)
+            surface.DrawOutlinedRect(0, 0, w, h, 2)
+            draw.SimpleText("Guardar", "DermaLarge", w/2, h/2, Color(200, 220, 255), TEXT_ALIGN_CENTER, TEXT_ALIGN_CENTER)
+        end
+        saveBtn.DoClick = function()
+            notification.AddLegacy("Personaje guardado", NOTIFY_GENERIC, 3)
+            surface.PlaySound("buttons/button15.wav")
+        end
         
         local function UpdateModel()
             if not currentModels or #currentModels == 0 then return end
