@@ -27,7 +27,7 @@ if CLIENT then
         panel:ShowCloseButton(false)
         panel:MakePopup()
         panel.Paint = function(self, w, h)
-            surface.SetDrawColor(40, 40, 40, 240)
+            surface.SetDrawColor(0, 0, 0, 240)
             surface.DrawRect(0, 0, w, h)
             surface.SetDrawColor(0, 120, 255, 255)
             surface.DrawOutlinedRect(0, 0, w, h, 4)
@@ -47,11 +47,127 @@ if CLIENT then
             CAMERA:StopSequence()
         end
         
-        -- Contenido del panel
-        --local content = vgui.Create("DLabel", panel)
-        --content:SetTextColor(Color(255, 255, 255))
-        --content:SizeToContents()
-        --content:Center()
+
+        
+        -- Nombre
+        local textLabel = vgui.Create("DLabel", panel)
+        textLabel:SetText("Nombre:")
+        textLabel:SetFont("DermaLarge")
+        textLabel:SetSize(400, 60)
+        textLabel:SetTextColor(Color(255, 255, 255))
+        textLabel:SetPos(80, 60)
+        textLabel:SizeToContents()        
+        local textEntry = vgui.Create("DTextEntry", panel)
+        textEntry:SetPos(80, 105)
+        textEntry:SetSize(300, 45)
+        textEntry:SetFont("DermaLarge")
+        textEntry:SetTextColor(Color(255, 255, 255))
+        textEntry.Paint = function(self, w, h)
+            surface.SetDrawColor(60, 60, 60, 200)
+            surface.DrawRect(0, 0, w, h)
+            self:DrawTextEntryText(Color(255, 255, 255), Color(30, 136, 229), Color(255, 255, 255))
+        end
+
+
+        -- Genero
+        local textLabel = vgui.Create("DLabel", panel)
+        textLabel:SetText("Genero:")
+        textLabel:SetFont("DermaLarge")
+        textLabel:SetSize(400, 60)
+        textLabel:SetTextColor(Color(255, 255, 255))
+        textLabel:SetPos(80, 180)
+        textLabel:SizeToContents()        
+        local textEntry = vgui.Create("DComboBox", panel)
+        textEntry:SetPos(80, 225)
+        textEntry:SetSize(300, 45)
+        textEntry:SetFont("DermaLarge")
+        textEntry:AddChoice("Masculino")
+        textEntry:AddChoice("Femenino")
+        textEntry:ChooseOptionID(1)
+        textEntry:SetTextColor(Color(255, 255, 255))
+        textEntry.Paint = function(self, w, h)
+            surface.SetDrawColor(60, 60, 60, 200)
+            surface.DrawRect(0, 0, w, h)
+            self:DrawTextEntryText(Color(255, 255, 255), Color(30, 136, 229), Color(255, 255, 255))
+        end
+        local currentGender = "Masculino"
+        local currentModelIndex = 1
+        local currentModels = CHARACTER_CREATOR.Models[currentGender] or {}
+        local modelPanel
+        modelPanel = vgui.Create("DModelPanel", panel)
+        modelPanel:SetAnimated(false)
+        modelPanel:SetSize(600, 600)
+        modelPanel:SetPos(panel:GetWide()/2 - 300, panel:GetTall()/2 - 400)
+        modelPanel:SetFOV(45)
+        
+        local function UpdateModel()
+            if not currentModels or #currentModels == 0 then return end
+            
+            currentModelIndex = math.Clamp(currentModelIndex, 1, #currentModels)
+            local modelPath = currentModels[currentModelIndex]
+            
+            if IsValid(modelPanel) and modelPanel:GetModel() ~= modelPath then
+                modelPanel:SetModel(modelPath)
+                
+                local mn, mx = modelPanel.Entity:GetRenderBounds()
+                local size = 0
+                size = math.max(size, math.abs(mn.x) + math.abs(mx.x))
+                size = math.max(size, math.abs(mn.y) + math.abs(mx.y))
+                size = math.max(size, math.abs(mn.z) + math.abs(mx.z))
+                modelPanel:SetCamPos(Vector(size, size, size/2))
+                modelPanel:SetLookAt((mn + mx) * 0.5)
+            end
+        end
+        
+        -- Botón de flecha izquierda
+        local leftArrow = vgui.Create("DButton", panel)
+        leftArrow:SetText("❮")
+        leftArrow:SetFont("DermaLarge")
+        leftArrow:SetSize(30, 30)
+        leftArrow:SetPos(40, 230)
+        leftArrow.Paint = function(self, w, h)
+            surface.SetDrawColor(60, 60, 60, 200)
+            surface.DrawRect(0, 0, w, h)
+            draw.SimpleText("❮", "DermaLarge", w/2, h/2, Color(255, 255, 255), TEXT_ALIGN_CENTER, TEXT_ALIGN_CENTER)
+        end
+        leftArrow.DoClick = function()
+            currentModelIndex = currentModelIndex - 1
+            if currentModelIndex < 1 then
+                currentModelIndex = #currentModels
+            end
+            UpdateModel()
+        end
+
+        -- Botón de flecha derecha
+        local rightArrow = vgui.Create("DButton", panel)
+        rightArrow:SetText("❯")
+        rightArrow:SetFont("DermaLarge")
+        rightArrow:SetSize(30, 30)
+        rightArrow:SetPos(390, 230)
+        rightArrow.Paint = function(self, w, h)
+            surface.SetDrawColor(60, 60, 60, 200)
+            surface.DrawRect(0, 0, w, h)
+            draw.SimpleText("❯", "DermaLarge", w/2, h/2, Color(255, 255, 255), TEXT_ALIGN_CENTER, TEXT_ALIGN_CENTER)
+        end
+        rightArrow.DoClick = function()
+            currentModelIndex = currentModelIndex + 1
+            if currentModelIndex > #currentModels then
+                currentModelIndex = 1
+            end
+            UpdateModel()
+        end
+        
+        -- Actualizar el modelo cuando cambie el género
+        textEntry.OnSelect = function(panel, index, value)
+            currentGender = value
+            currentModels = CHARACTER_CREATOR.Models[value] or {}
+            currentModelIndex = 1
+            UpdateModel()
+        end
+        
+        -- Cargar el modelo inicial
+        UpdateModel()
+        
         
         self.Panel = panel
         return panel
