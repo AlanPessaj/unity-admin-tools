@@ -259,7 +259,7 @@ if CLIENT then
             draw.SimpleText("Guardar", "DermaLarge", w/2, h/2, Color(200, 220, 255), TEXT_ALIGN_CENTER, TEXT_ALIGN_CENTER)
         end
         saveBtn.DoClick = function()
-            notification.AddLegacy("Personaje guardado", NOTIFY_GENERIC, 3)
+            -- Quitar notificación aquí, solo enviar datos
             surface.PlaySound("buttons/button15.wav")
             net.Start("character_creator_save_preset")
                 net.WriteTable({
@@ -271,6 +271,19 @@ if CLIENT then
                 })
             net.SendToServer()
         end
+
+        -- Escuchar errores de guardado
+        net.Receive("character_creator_save_error", function()
+            local msg = net.ReadString()
+            notification.AddLegacy(msg or "Error al guardar el personaje.", NOTIFY_ERROR, 4)
+            surface.PlaySound("buttons/button10.wav")
+        end)
+
+        -- Escuchar éxito de guardado
+        net.Receive("character_creator_save_success", function()
+            notification.AddLegacy("Personaje guardado", NOTIFY_GENERIC, 3)
+            surface.PlaySound("buttons/button15.wav")
+        end)
 
         -- Botón de flecha izquierda
         local leftArrow = vgui.Create("DButton", panel)
