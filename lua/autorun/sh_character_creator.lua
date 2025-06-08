@@ -1,4 +1,3 @@
-
 CHARACTER_CREATOR = CHARACTER_CREATOR or {}
 CHARACTER_CREATOR.Models = {
     Masculino = {
@@ -35,3 +34,25 @@ CHARACTER_CREATOR.Models = {
         
     }
 }
+
+if SERVER then
+    util.AddNetworkString("character_creator_save_preset")
+    util.AddNetworkString("character_creator_request_preset")
+    util.AddNetworkString("character_creator_send_preset")
+
+    -- Tabla en memoria para presets (puedes guardar en archivo si quieres persistencia)
+    local presets = {}
+
+    net.Receive("character_creator_save_preset", function(len, ply)
+        local data = net.ReadTable()
+        if not istable(data) then return end
+        presets[ply:SteamID()] = data
+    end)
+
+    net.Receive("character_creator_request_preset", function(len, ply)
+        local preset = presets[ply:SteamID()] or nil
+        net.Start("character_creator_send_preset")
+            net.WriteTable(preset or {})
+        net.Send(ply)
+    end)
+end
