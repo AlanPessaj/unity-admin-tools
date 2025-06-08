@@ -41,16 +41,20 @@ if SERVER then
     util.AddNetworkString("character_creator_send_preset")
     util.AddNetworkString("character_creator_save_error")
     util.AddNetworkString("character_creator_save_success")
+    util.AddNetworkString("character_creator_request_presets_list")
+    util.AddNetworkString("character_creator_send_presets_list")
+    util.AddNetworkString("character_creator_delete_preset")
+    util.AddNetworkString("character_creator_delete_success")
+    util.AddNetworkString("character_creator_save_exists") -- NUEVO
+    util.AddNetworkString("character_creator_overwrite_preset") -- NUEVO
 
-    -- Tabla en memoria para presets (ahora persistente)
+    -- Tabla en memoria para presets (ahora persistente y multi-preset)
     local presets = {}
 
-    -- Función para guardar la tabla en disco
     local function SavePresetsToDisk()
         file.Write("character_creator_presets.txt", util.TableToJSON(presets, true))
     end
 
-    -- Función para cargar la tabla desde disco
     local function LoadPresetsFromDisk()
         if file.Exists("character_creator_presets.txt", "DATA") then
             local json = file.Read("character_creator_presets.txt", "DATA")
@@ -61,30 +65,94 @@ if SERVER then
         end
     end
 
-    -- Cargar presets al iniciar
     LoadPresetsFromDisk()
 
     net.Receive("character_creator_save_preset", function(len, ply)
         local data = net.ReadTable()
         if not istable(data) then return end
         local steamid = ply:SteamID()
+        presets[steamid] = presets[steamid] or {}
         -- Validar nombre único por usuario
-        if presets[steamid] and presets[steamid].nombre and presets[steamid].nombre == data.nombre then
-            net.Start("character_creator_save_error")
-                net.WriteString("Ya tienes un personaje con ese nombre.")
-            net.Send(ply)
-            return
+        for idx, v in ipairs(presets[steamid]) do
+            if istable(v) and v.nombre == data.nombre then
+                -- Ya existe, avisar al cliente para preguntar si quiere sobrescribir
+                net.Start("character_creator_save_exists")
+                    net.WriteString(data.nombre)
+                    net.WriteTable(data)
+                net.Send(ply)
+                return
+            end
         end
-        presets[steamid] = data
+        table.insert(presets[steamid], data)
+        SavePresetsToDisk()
+        net.Start("character_creator_save_success")
+        net.Send(ply)
+    end)
+
+    net.Receive("character_creator_overwrite_preset", function(len, ply)
+        local data = net.ReadTable()
+        if not istable(data) then return end
+        local steamid = ply:SteamID()
+        presets[steamid] = presets[steamid] or {}
+        local found = false
+        for idx, v in ipairs(presets[steamid]) do
+            if istable(v) and v.nombre == data.nombre then
+                presets[steamid][idx] = data
+                found = true
+                break
+            end
+        end
+        if not found then
+            table.insert(presets[steamid], data)
+        end
         SavePresetsToDisk()
         net.Start("character_creator_save_success")
         net.Send(ply)
     end)
 
     net.Receive("character_creator_request_preset", function(len, ply)
-        local preset = presets[ply:SteamID()] or nil
+        local steamid = ply:SteamID()
+        local name = net.ReadString()
+        local preset
+        if presets[steamid] then
+            for _, v in ipairs(presets[steamid]) do
+                if v.nombre == name then
+                    preset = v
+                    break
+                end
+            end
+        end
         net.Start("character_creator_send_preset")
             net.WriteTable(preset or {})
+        net.Send(ply)
+    end)
+
+    net.Receive("character_creator_request_presets_list", function(len, ply)
+        local steamid = ply:SteamID()
+        local names = {}
+        if presets[steamid] then
+            for _, v in ipairs(presets[steamid]) do
+                table.insert(names, v.nombre)
+            end
+        end
+        net.Start("character_creator_send_presets_list")
+            net.WriteTable(names)
+        net.Send(ply)
+    end)
+
+    net.Receive("character_creator_delete_preset", function(len, ply)
+        local steamid = ply:SteamID()
+        local name = net.ReadString()
+        if presets[steamid] then
+            for i, v in ipairs(presets[steamid]) do
+                if v.nombre == name then
+                    table.remove(presets[steamid], i)
+                    SavePresetsToDisk()
+                    break
+                end
+            end
+        end
+        net.Start("character_creator_delete_success")
         net.Send(ply)
     end)
 end

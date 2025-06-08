@@ -109,6 +109,77 @@ if CLIENT then
         modelPanel:SetFOV(45)
         modelPanel.LayoutEntity = function(self, ent) end
 
+        local function UpdateModel()
+            if not currentModels or #currentModels == 0 then return end
+
+            currentModelIndex = math.Clamp(currentModelIndex, 1, #currentModels)
+            local modelPath = currentModels[currentModelIndex]
+
+            if IsValid(modelPanel) and modelPanel:GetModel() ~= modelPath then
+                modelPanel:SetModel(modelPath)
+                modelPanel.Entity:SetAngles(Angle(0, 45, 0))
+
+                local mn, mx = modelPanel.Entity:GetRenderBounds()
+                local size = 0
+                size = math.max(size, math.abs(mn.x) + math.abs(mx.x))
+                size = math.max(size, math.abs(mn.y) + math.abs(mx.y))
+                size = math.max(size, math.abs(mn.z) + math.abs(mx.z))
+                modelPanel:SetCamPos(Vector(size, size, size/2))
+                modelPanel:SetLookAt((mn + mx) * 0.5)
+
+                timer.Simple(0.1, function()
+                    if not IsValid(modelPanel) or not IsValid(modelPanel.Entity) then return end
+                    if IsValid(modelPanel.BodygroupControls) then
+                        modelPanel.BodygroupControls:Remove()
+                    end
+                    modelPanel.BodygroupControls = CreateBodygroupControls(panel, modelPanel.Entity)
+                    UpdateBodygroups(modelPanel.Entity)
+                end)
+            elseif IsValid(modelPanel) and IsValid(modelPanel.Entity) then
+                UpdateBodygroups(modelPanel.Entity)
+            end
+        end
+
+        -- Botón de flecha izquierda (anterior modelo)
+        local leftArrow = vgui.Create("DButton", panel)
+        leftArrow:SetText("❮")
+        leftArrow:SetFont("DermaLarge")
+        leftArrow:SetSize(40, 40)
+        leftArrow:SetPos(panel:GetWide()/2 - 340, panel:GetTall()/2 - 100)
+        leftArrow:SetTextColor(Color(200, 220, 255))
+        leftArrow.Paint = function(self, w, h)
+            surface.SetDrawColor(60, 60, 60, 200)
+            surface.DrawRect(0, 0, w, h)
+            draw.SimpleText("❮", "DermaLarge", w/2, h/2, Color(200, 220, 255), TEXT_ALIGN_CENTER, TEXT_ALIGN_CENTER)
+        end
+        leftArrow.DoClick = function()
+            currentModelIndex = currentModelIndex - 1
+            if currentModelIndex < 1 then
+                currentModelIndex = #currentModels
+            end
+            UpdateModel()
+        end
+
+        -- Botón de flecha derecha (siguiente modelo)
+        local rightArrow = vgui.Create("DButton", panel)
+        rightArrow:SetText("❯")
+        rightArrow:SetFont("DermaLarge")
+        rightArrow:SetSize(40, 40)
+        rightArrow:SetPos(panel:GetWide()/2 + 300, panel:GetTall()/2 - 100)
+        rightArrow:SetTextColor(Color(200, 220, 255))
+        rightArrow.Paint = function(self, w, h)
+            surface.SetDrawColor(60, 60, 60, 200)
+            surface.DrawRect(0, 0, w, h)
+            draw.SimpleText("❯", "DermaLarge", w/2, h/2, Color(200, 220, 255), TEXT_ALIGN_CENTER, TEXT_ALIGN_CENTER)
+        end
+        rightArrow.DoClick = function()
+            currentModelIndex = currentModelIndex + 1
+            if currentModelIndex > #currentModels then
+                currentModelIndex = 1
+            end
+            UpdateModel()
+        end
+
         -- Funciones locales
         local function UpdateBodygroups(entity)
             if not IsValid(entity) then return end
@@ -209,37 +280,6 @@ if CLIENT then
             return container
         end
 
-        local function UpdateModel()
-            if not currentModels or #currentModels == 0 then return end
-
-            currentModelIndex = math.Clamp(currentModelIndex, 1, #currentModels)
-            local modelPath = currentModels[currentModelIndex]
-
-            if IsValid(modelPanel) and modelPanel:GetModel() ~= modelPath then
-                modelPanel:SetModel(modelPath)
-                modelPanel.Entity:SetAngles(Angle(0, 45, 0))
-
-                local mn, mx = modelPanel.Entity:GetRenderBounds()
-                local size = 0
-                size = math.max(size, math.abs(mn.x) + math.abs(mx.x))
-                size = math.max(size, math.abs(mn.y) + math.abs(mx.y))
-                size = math.max(size, math.abs(mn.z) + math.abs(mx.z))
-                modelPanel:SetCamPos(Vector(size, size, size/2))
-                modelPanel:SetLookAt((mn + mx) * 0.5)
-
-                timer.Simple(0.1, function()
-                    if not IsValid(modelPanel) or not IsValid(modelPanel.Entity) then return end
-                    if IsValid(modelPanel.BodygroupControls) then
-                        modelPanel.BodygroupControls:Remove()
-                    end
-                    modelPanel.BodygroupControls = CreateBodygroupControls(panel, modelPanel.Entity)
-                    UpdateBodygroups(modelPanel.Entity)
-                end)
-            elseif IsValid(modelPanel) and IsValid(modelPanel.Entity) then
-                UpdateBodygroups(modelPanel.Entity)
-            end
-        end
-
         -- Botón Guardar
         local saveBtn = vgui.Create("DButton", panel)
         saveBtn:SetText("Guardar")
@@ -259,7 +299,6 @@ if CLIENT then
             draw.SimpleText("Guardar", "DermaLarge", w/2, h/2, Color(200, 220, 255), TEXT_ALIGN_CENTER, TEXT_ALIGN_CENTER)
         end
         saveBtn.DoClick = function()
-            -- Quitar notificación aquí, solo enviar datos
             surface.PlaySound("buttons/button15.wav")
             net.Start("character_creator_save_preset")
                 net.WriteTable({
@@ -285,55 +324,123 @@ if CLIENT then
             surface.PlaySound("buttons/button15.wav")
         end)
 
-        -- Botón de flecha izquierda
-        local leftArrow = vgui.Create("DButton", panel)
-        leftArrow:SetText("❮")
-        leftArrow:SetFont("DermaLarge")
-        leftArrow:SetSize(30, 30)
-        leftArrow:SetPos(625, 230)
-        leftArrow.Paint = function(self, w, h)
-            surface.SetDrawColor(60, 60, 60, 200)
+        -- ComboBox de presets guardados
+        local presetsCombo = vgui.Create("DComboBox", panel)
+        presetsCombo:SetPos(80, 300)
+        presetsCombo:SetSize(300, 40)
+        presetsCombo:SetFont("DermaLarge")
+        presetsCombo:SetValue("Seleccionar preset")
+        presetsCombo:SetTextColor(Color(200, 220, 255))
+        presetsCombo.Paint = function(self, w, h)
+            surface.SetDrawColor(40, 50, 60, 200)
             surface.DrawRect(0, 0, w, h)
-            draw.SimpleText("❮", "DermaLarge", w/2, h/2, Color(200, 220, 255), TEXT_ALIGN_CENTER, TEXT_ALIGN_CENTER)
-        end
-        leftArrow.DoClick = function()
-            currentModelIndex = currentModelIndex - 1
-            if currentModelIndex < 1 then
-                currentModelIndex = #currentModels
-            end
-            UpdateModel()
+            self:DrawTextEntryText(Color(200, 220, 255), Color(30, 100, 200), Color(200, 220, 255))
         end
 
-        -- Botón de flecha derecha
-        local rightArrow = vgui.Create("DButton", panel)
-        rightArrow:SetText("❯")
-        rightArrow:SetFont("DermaLarge")
-        rightArrow:SetSize(30, 30)
-        rightArrow:SetPos(855, 230)
-        rightArrow.Paint = function(self, w, h)
-            surface.SetDrawColor(60, 60, 60, 200)
+        -- Botón cargar preset
+        local loadPresetBtn = vgui.Create("DButton", panel)
+        loadPresetBtn:SetText("Cargar")
+        loadPresetBtn:SetFont("DermaLarge")
+        loadPresetBtn:SetSize(120, 40)
+        loadPresetBtn:SetPos(400, 300)
+        loadPresetBtn:SetTextColor(Color(200, 220, 255))
+        loadPresetBtn.Paint = function(self, w, h)
+            surface.SetDrawColor(40, 80, 140, 220)
             surface.DrawRect(0, 0, w, h)
-            draw.SimpleText("❯", "DermaLarge", w/2, h/2, Color(200, 220, 255), TEXT_ALIGN_CENTER, TEXT_ALIGN_CENTER)
+            if self:IsHovered() then
+                surface.SetDrawColor(60, 120, 200, 240)
+                surface.DrawRect(0, 0, w, h)
+            end
+            surface.SetDrawColor(0, 120, 255, 255)
+            surface.DrawOutlinedRect(0, 0, w, h, 2)
+            draw.SimpleText("Cargar", "DermaLarge", w/2, h/2, Color(200, 220, 255), TEXT_ALIGN_CENTER, TEXT_ALIGN_CENTER)
         end
-        rightArrow.DoClick = function()
-            currentModelIndex = currentModelIndex + 1
-            if currentModelIndex > #currentModels then
+        loadPresetBtn.DoClick = function()
+            local selected = presetsCombo:GetSelected()
+            if not selected or selected == "" then
+                notification.AddLegacy("Selecciona un preset para cargar.", NOTIFY_ERROR, 3)
+                return
+            end
+            net.Start("character_creator_request_preset")
+                net.WriteString(selected)
+            net.SendToServer()
+        end
+
+        -- Botón eliminar preset
+        local deletePresetBtn = vgui.Create("DButton", panel)
+        deletePresetBtn:SetText("Eliminar")
+        deletePresetBtn:SetFont("DermaLarge")
+        deletePresetBtn:SetSize(120, 40)
+        deletePresetBtn:SetPos(530, 300)
+        deletePresetBtn:SetTextColor(Color(200, 220, 255))
+        deletePresetBtn.Paint = function(self, w, h)
+            surface.SetDrawColor(140, 40, 40, 220)
+            surface.DrawRect(0, 0, w, h)
+            if self:IsHovered() then
+                surface.SetDrawColor(200, 60, 60, 240)
+                surface.DrawRect(0, 0, w, h)
+            end
+            surface.SetDrawColor(255, 0, 0, 255)
+            surface.DrawOutlinedRect(0, 0, w, h, 2)
+            draw.SimpleText("Eliminar", "DermaLarge", w/2, h/2, Color(255, 220, 220), TEXT_ALIGN_CENTER, TEXT_ALIGN_CENTER)
+        end
+        deletePresetBtn.DoClick = function()
+            local selected = presetsCombo:GetSelected()
+            if not selected or selected == "" then
+                notification.AddLegacy("Selecciona un preset para eliminar.", NOTIFY_ERROR, 3)
+                return
+            end
+            Derma_Query("¿Seguro que quieres eliminar el personaje '" .. selected .. "'?", "Eliminar preset",
+                "Sí", function()
+                    net.Start("character_creator_delete_preset")
+                        net.WriteString(selected)
+                    net.SendToServer()
+                end,
+                "No"
+            )
+        end
+
+        -- Recibir lista de presets y poblar el combobox
+        local function RequestAndPopulatePresets()
+            presetsCombo:Clear()
+            net.Start("character_creator_request_presets_list")
+            net.SendToServer()
+        end
+
+        net.Receive("character_creator_send_presets_list", function()
+            local names = net.ReadTable() or {}
+            presetsCombo:Clear()
+            if #names > 0 then
+                for _, name in ipairs(names) do
+                    presetsCombo:AddChoice(name)
+                end
+                -- Seleccionar y cargar el primero automáticamente
+                presetsCombo:ChooseOptionID(1)
+                local first = names[1]
+                if first then
+                    net.Start("character_creator_request_preset")
+                        net.WriteString(first)
+                    net.SendToServer()
+                end
+            else
+                -- No hay presets, limpiar campos
+                nombreEntry:SetValue("")
+                currentGender = "Masculino"
+                currentModels = CHARACTER_CREATOR.Models[currentGender] or {}
                 currentModelIndex = 1
+                generoEntry:ChooseOption(currentGender)
+                bodygroupSelections = {torso=0,legs=0,hands=0,headgear=0}
+                UpdateModel()
             end
-            UpdateModel()
-        end
+        end)
 
-        -- Actualizar el modelo cuando cambie el género
-        generoEntry.OnSelect = function(panel, index, value)
-            currentGender = value
-            currentModels = CHARACTER_CREATOR.Models[value] or {}
-            currentModelIndex = 1
-            UpdateModel()
-        end
-
-        -- Función para aplicar un preset recibido
-        local function ApplyPreset(preset)
-            if not preset then return end
+        -- Recibir preset y cargarlo en los campos
+        net.Receive("character_creator_send_preset", function()
+            local preset = net.ReadTable()
+            if not preset or not preset.nombre then
+                notification.AddLegacy("No se pudo cargar el preset.", NOTIFY_ERROR, 3)
+                return
+            end
             nombreEntry:SetValue(preset.nombre or "")
             currentGender = preset.genero or "Masculino"
             currentModels = CHARACTER_CREATOR.Models[currentGender] or {}
@@ -346,15 +453,38 @@ if CLIENT then
                     UpdateBodygroups(modelPanel.Entity)
                 end
             end)
+        end)
+
+        -- Botón para recargar la lista de presets
+        local refreshBtn = vgui.Create("DButton", panel)
+        refreshBtn:SetText("Actualizar lista")
+        refreshBtn:SetFont("DermaLarge")
+        refreshBtn:SetSize(200, 50)
+        refreshBtn:SetPos(panel:GetWide()/2 - 100, modelPanel:GetY() + modelPanel:GetTall() + 80)
+        refreshBtn:SetTextColor(Color(200, 220, 255))
+        refreshBtn.Paint = function(self, w, h)
+            surface.SetDrawColor(40, 80, 140, 220)
+            surface.DrawRect(0, 0, w, h)
+            if self:IsHovered() then
+                surface.SetDrawColor(60, 120, 200, 240)
+                surface.DrawRect(0, 0, w, h)
+            end
+            surface.SetDrawColor(0, 120, 255, 255)
+            surface.DrawOutlinedRect(0, 0, w, h, 2)
+            draw.SimpleText("Actualizar lista", "DermaLarge", w/2, h/2, Color(200, 220, 255), TEXT_ALIGN_CENTER, TEXT_ALIGN_CENTER)
+        end
+        refreshBtn.DoClick = function()
+            RequestAndPopulatePresets()
         end
 
-        -- Solicitar preset al servidor al abrir el panel
-        net.Start("character_creator_request_preset")
-        net.SendToServer()
-        net.Receive("character_creator_send_preset", function()
-            local preset = net.ReadTable()
-            ApplyPreset(preset)
+        -- Recargar lista tras eliminar
+        net.Receive("character_creator_delete_success", function()
+            notification.AddLegacy("Preset eliminado.", NOTIFY_GENERIC, 3)
+            RequestAndPopulatePresets()
         end)
+
+        -- Llamar al cargar panel
+        RequestAndPopulatePresets()
 
         -- Cargar el modelo inicial
         UpdateModel()
