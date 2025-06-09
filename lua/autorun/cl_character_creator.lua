@@ -439,6 +439,13 @@ if CLIENT then
             net.SendToServer()
         end
 
+        -- Al guardar o sobrescribir, actualizar la lista de presets
+        net.Receive("character_creator_save_success", function()
+            notification.AddLegacy("Personaje guardado", NOTIFY_GENERIC, 3)
+            surface.PlaySound("buttons/button15.wav")
+            RequestAndPopulatePresets(nombreEntry:GetValue())
+        end)
+
         -- Botón Aplicar
         local applyBtn = vgui.Create("DButton", panel)
         applyBtn:SetText("Aplicar")
