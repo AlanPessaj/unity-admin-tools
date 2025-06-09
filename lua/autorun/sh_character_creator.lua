@@ -47,6 +47,7 @@ if SERVER then
     util.AddNetworkString("character_creator_delete_success")
     util.AddNetworkString("character_creator_save_exists") -- NUEVO
     util.AddNetworkString("character_creator_overwrite_preset") -- NUEVO
+    util.AddNetworkString("character_creator_apply_model")
 
     -- Tabla en memoria para presets (ahora persistente y multi-preset)
     local presets = {}
@@ -154,5 +155,58 @@ if SERVER then
         end
         net.Start("character_creator_delete_success")
         net.Send(ply)
+    end)
+
+    -- Guardar el último modelo y bodygroups aplicados por jugador
+    local lastApplied = {}
+
+    net.Receive("character_creator_apply_model", function(len, ply)
+        local model = net.ReadString()
+        local bodygroups = net.ReadTable()
+        if not isstring(model) or model == "" then return end
+        ply:SetModel(model)
+        if istable(bodygroups) then
+            for k, v in pairs(bodygroups) do
+                -- Asume que los bodygroups están en el orden correcto
+                if isnumber(v) then
+                    local bgid = nil
+                    if k == "torso" then bgid = 1
+                    elseif k == "legs" then bgid = 2
+                    elseif k == "hands" then bgid = 3
+                    elseif k == "headgear" then bgid = 4
+                    end
+                    if bgid then
+                        ply:SetBodygroup(bgid, v)
+                    end
+                end
+            end
+        end
+        lastApplied[ply:SteamID()] = {model = model, bodygroups = bodygroups}
+    end)
+
+    -- Aplicar modelo y bodygroups tras respawn
+    hook.Add("PlayerSpawn", "character_creator_apply_on_spawn", function(ply)
+        local data = lastApplied[ply:SteamID()]
+        if data and isstring(data.model) and data.model ~= "" then
+            timer.Simple(0, function()
+                if not IsValid(ply) then return end
+                ply:SetModel(data.model)
+                if istable(data.bodygroups) then
+                    for k, v in pairs(data.bodygroups) do
+                        if isnumber(v) then
+                            local bgid = nil
+                            if k == "torso" then bgid = 1
+                            elseif k == "legs" then bgid = 2
+                            elseif k == "hands" then bgid = 3
+                            elseif k == "headgear" then bgid = 4
+                            end
+                            if bgid then
+                                ply:SetBodygroup(bgid, v)
+                            end
+                        end
+                    end
+                end
+            end)
+        end
     end)
 end

@@ -296,7 +296,7 @@ if CLIENT then
         presetsCombo:SetPos(80, 300)
         presetsCombo:SetSize(300, 40)
         presetsCombo:SetFont("DermaLarge")
-        presetsCombo:SetValue("Seleccionar preset")
+        presetsCombo:SetValue("Seleccionar personaje guardado")
         presetsCombo:SetTextColor(Color(200, 220, 255))
         presetsCombo.Paint = function(self, w, h)
             surface.SetDrawColor(40, 50, 60, 200)
@@ -341,6 +341,40 @@ if CLIENT then
             net.SendToServer()
         end
 
+        -- Botón eliminar preset
+        local deletePresetBtn = vgui.Create("DButton", panel)
+        deletePresetBtn:SetText("Eliminar")
+        deletePresetBtn:SetFont("DermaLarge")
+        deletePresetBtn:SetSize(120, 40)
+        deletePresetBtn:SetPos(530, 300)
+        deletePresetBtn:SetTextColor(Color(200, 220, 255))
+        deletePresetBtn.Paint = function(self, w, h)
+            surface.SetDrawColor(140, 40, 40, 220)
+            surface.DrawRect(0, 0, w, h)
+            if self:IsHovered() then
+                surface.SetDrawColor(200, 60, 60, 240)
+                surface.DrawRect(0, 0, w, h)
+            end
+            surface.SetDrawColor(255, 0, 0, 255)
+            surface.DrawOutlinedRect(0, 0, w, h, 2)
+            draw.SimpleText("Eliminar", "DermaLarge", w/2, h/2, Color(255, 220, 220), TEXT_ALIGN_CENTER, TEXT_ALIGN_CENTER)
+        end
+        deletePresetBtn.DoClick = function()
+            local selected = presetsCombo:GetSelected()
+            if not selected or selected == "" then
+                notification.AddLegacy("Selecciona un preset para eliminar.", NOTIFY_ERROR, 3)
+                return
+            end
+            Derma_Query("¿Seguro que quieres eliminar el personaje '" .. selected .. "'?", "Eliminar personaje",
+                "Sí", function()
+                    net.Start("character_creator_delete_preset")
+                        net.WriteString(selected)
+                    net.SendToServer()
+                end,
+                "No"
+            )
+        end
+
         -- Recibir lista de presets y poblar el combobox
         local function RequestAndPopulatePresets(selectedName)
             presetsCombo:Clear()
@@ -375,7 +409,7 @@ if CLIENT then
         net.Receive("character_creator_send_preset", function()
             local preset = net.ReadTable()
             if not preset or not preset.nombre then
-                notification.AddLegacy("No se pudo cargar el preset.", NOTIFY_ERROR, 3)
+                notification.AddLegacy("No se pudo cargar el personaje.", NOTIFY_ERROR, 3)
                 return
             end
             nombreEntry:SetValue(preset.nombre or "")
@@ -398,7 +432,7 @@ if CLIENT then
             local data = net.ReadTable()
             Derma_Query(
                 "Ya existe un personaje con ese nombre. ¿Deseas sobrescribirlo?",
-                "Sobrescribir preset",
+                "Sobrescribir personaje",
                 "Sí", function()
                     net.Start("character_creator_overwrite_preset")
                         net.WriteTable(data)
@@ -439,9 +473,35 @@ if CLIENT then
             net.SendToServer()
         end
 
+        -- Botón Aplicar (aplica el modelo y bodygroups al jugador)
+        local applyBtn = vgui.Create("DButton", panel)
+        applyBtn:SetText("Aplicar")
+        applyBtn:SetFont("DermaLarge")
+        applyBtn:SetSize(200, 50)
+        applyBtn:SetPos(panel:GetWide()/2 - 100, modelPanel:GetY() + modelPanel:GetTall() + 80)
+        applyBtn:SetTextColor(Color(200, 220, 255))
+        applyBtn.Paint = function(self, w, h)
+            surface.SetDrawColor(40, 80, 140, 220)
+            surface.DrawRect(0, 0, w, h)
+            if self:IsHovered() then
+                surface.SetDrawColor(60, 120, 200, 240)
+                surface.DrawRect(0, 0, w, h)
+            end
+            surface.SetDrawColor(0, 120, 255, 255)
+            surface.DrawOutlinedRect(0, 0, w, h, 2)
+            draw.SimpleText("Aplicar", "DermaLarge", w/2, h/2, Color(200, 220, 255), TEXT_ALIGN_CENTER, TEXT_ALIGN_CENTER)
+        end
+        applyBtn.DoClick = function()
+            surface.PlaySound("buttons/button15.wav")
+            net.Start("character_creator_apply_model")
+                net.WriteString(currentModels[currentModelIndex] or "")
+                net.WriteTable(table.Copy(bodygroupSelections))
+            net.SendToServer()
+        end
+
         -- Recargar lista tras eliminar
         net.Receive("character_creator_delete_success", function()
-            notification.AddLegacy("Preset eliminado.", NOTIFY_GENERIC, 3)
+            notification.AddLegacy("Personaje eliminado.", NOTIFY_GENERIC, 3)
             RequestAndPopulatePresets()
         end)
 
