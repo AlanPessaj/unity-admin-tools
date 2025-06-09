@@ -15,7 +15,7 @@ if CLIENT then
         -- Punto inicial - Punto final - Angulo inicial - Angulo final - Tiempo de transición
     }
 
-    util.AddNetworkString = util.AddNetworkString or function() end // Para evitar errores en cliente puro
+    util.AddNetworkString = util.AddNetworkString or function() end
 
     function CAMERA:CreatePanel()
         if IsValid(self.Panel) then self.Panel:Remove() end
@@ -29,12 +29,14 @@ if CLIENT then
         panel:ShowCloseButton(false)
         panel:MakePopup()
         panel.Paint = function(self, w, h)
+            Derma_DrawBackgroundBlur(self, self.m_fCreateTime or SysTime())
             surface.SetDrawColor(0, 0, 0, 240)
             surface.DrawRect(0, 0, w, h)
             surface.SetDrawColor(0, 120, 255, 255)
             surface.DrawOutlinedRect(0, 0, w, h, 4)
             draw.SimpleText("SELECTOR DE PERSONAJE", "DermaDefaultBold", w/2, 15, Color(200, 220, 255), TEXT_ALIGN_CENTER, TEXT_ALIGN_CENTER)
         end
+        panel.m_fCreateTime = SysTime()
 
         -- Botón de cierre
         local closeBtn = vgui.Create("DButton", panel)
@@ -109,10 +111,8 @@ if CLIENT then
         modelPanel:SetFOV(45)
         modelPanel.LayoutEntity = function(self, ent) end
 
-        -- Declaración adelantada de funciones locales para evitar problemas de scope
         local UpdateBodygroups, CreateBodygroupControls, UpdateModel
 
-        -- Definición de UpdateBodygroups
         UpdateBodygroups = function(entity)
             if not IsValid(entity) then return end
             entity:SetBodygroup(1, bodygroupSelections.torso or 0)
@@ -121,7 +121,6 @@ if CLIENT then
             entity:SetBodygroup(4, bodygroupSelections.headgear or 0)
         end
 
-        -- Definición de CreateBodygroupControls
         CreateBodygroupControls = function(parent, entity)
             local container = vgui.Create("DPanel", parent)
             container:SetSize(300, 250)
@@ -213,7 +212,6 @@ if CLIENT then
             return container
         end
 
-        -- Definición de UpdateModel
         UpdateModel = function()
             if not currentModels or #currentModels == 0 then return end
 
@@ -283,7 +281,6 @@ if CLIENT then
             UpdateModel()
         end
 
-        -- Asignar el evento OnSelect del combobox de género DESPUÉS de definir UpdateModel
         generoEntry.OnSelect = function(self, index, value)
             currentGender = value
             currentModels = CHARACTER_CREATOR.Models[value] or {}
@@ -304,40 +301,11 @@ if CLIENT then
             self:DrawTextEntryText(Color(200, 220, 255), Color(30, 100, 200), Color(200, 220, 255))
         end
 
-        -- Al seleccionar un preset del combo, cargarlo
+        -- Cargar preset al seleccionar
         presetsCombo.OnSelect = function(self, index, value)
             if not value or value == "" then return end
             net.Start("character_creator_request_preset")
                 net.WriteString(value)
-            net.SendToServer()
-        end
-
-        -- Botón cargar preset (opcional, puedes dejarlo si quieres un botón además del combo)
-        local loadPresetBtn = vgui.Create("DButton", panel)
-        loadPresetBtn:SetText("Cargar")
-        loadPresetBtn:SetFont("DermaLarge")
-        loadPresetBtn:SetSize(120, 40)
-        loadPresetBtn:SetPos(400, 300)
-        loadPresetBtn:SetTextColor(Color(200, 220, 255))
-        loadPresetBtn.Paint = function(self, w, h)
-            surface.SetDrawColor(40, 80, 140, 220)
-            surface.DrawRect(0, 0, w, h)
-            if self:IsHovered() then
-                surface.SetDrawColor(60, 120, 200, 240)
-                surface.DrawRect(0, 0, w, h)
-            end
-            surface.SetDrawColor(0, 120, 255, 255)
-            surface.DrawOutlinedRect(0, 0, w, h, 2)
-            draw.SimpleText("Cargar", "DermaLarge", w/2, h/2, Color(200, 220, 255), TEXT_ALIGN_CENTER, TEXT_ALIGN_CENTER)
-        end
-        loadPresetBtn.DoClick = function()
-            local selected = presetsCombo:GetSelected()
-            if not selected or selected == "" then
-                notification.AddLegacy("Selecciona un preset para cargar.", NOTIFY_ERROR, 3)
-                return
-            end
-            net.Start("character_creator_request_preset")
-                net.WriteString(selected)
             net.SendToServer()
         end
 
@@ -346,7 +314,7 @@ if CLIENT then
         deletePresetBtn:SetText("Eliminar")
         deletePresetBtn:SetFont("DermaLarge")
         deletePresetBtn:SetSize(120, 40)
-        deletePresetBtn:SetPos(530, 300)
+        deletePresetBtn:SetPos(400, 300)
         deletePresetBtn:SetTextColor(Color(200, 220, 255))
         deletePresetBtn.Paint = function(self, w, h)
             surface.SetDrawColor(140, 40, 40, 220)
@@ -375,12 +343,11 @@ if CLIENT then
             )
         end
 
-        -- Recibir lista de presets y poblar el combobox
+        -- Recargar combobox de presets
         local function RequestAndPopulatePresets(selectedName)
             presetsCombo:Clear()
             net.Start("character_creator_request_presets_list")
             net.SendToServer()
-            -- Guardar el nombre seleccionado para después
             presetsCombo._pendingSelect = selectedName
         end
 
@@ -392,7 +359,6 @@ if CLIENT then
             for _, name in ipairs(names) do
                 presetsCombo:AddChoice(name)
             end
-            -- Seleccionar el nombre deseado si existe, si no el primero
             if selectName and table.HasValue(names, selectName) then
                 for i, v in ipairs(names) do
                     if v == selectName then
@@ -473,7 +439,7 @@ if CLIENT then
             net.SendToServer()
         end
 
-        -- Botón Aplicar (aplica el modelo y bodygroups al jugador)
+        -- Botón Aplicar
         local applyBtn = vgui.Create("DButton", panel)
         applyBtn:SetText("Aplicar")
         applyBtn:SetFont("DermaLarge")
