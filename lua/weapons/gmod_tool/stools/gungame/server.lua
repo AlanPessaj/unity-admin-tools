@@ -17,11 +17,16 @@ util.AddNetworkString("gungame_update_spawnpoints")
 local selecting = {}
 local points = {}
 local spawnPoints = {}
-local gungame_players = {}
+local gungame_players = {} -- Ahora será una tabla con más información por jugador
 local gungame_area_center = nil
 local gungame_event_active = false
 local gungame_area_points = {}
 local gungame_respawn_time = {}
+
+-- Función para obtener las kills de un jugador
+function GUNGAME.GetPlayerKills(steamid64)
+    return gungame_players[steamid64] and gungame_players[steamid64].kills or 0
+end
 
 -- Function to update area points for all clients
 local function UpdateAreaPointsForAll(plyPoints, sender)
@@ -108,21 +113,39 @@ net.Receive("gungame_start_event", function(_, ply)
     gungame_players = {}
 
     -- Find players inside the area
+    local playerCount = 0
     for _, p in ipairs(player.GetAll()) do
         if GUNGAME.PointInPoly2D(p:GetPos(), area) then
-            table.insert(gungame_players, p:SteamID64())
+            local steamid64 = p:SteamID64()
+            if not gungame_players[steamid64] then
+                gungame_players[steamid64] = {
+                    player = p,
+                    kills = 0,
+                    steamid64 = steamid64
+                }
+                playerCount = playerCount + 1
+            end
+            p:StripWeapons()
         end
     end
 
     gungame_event_active = true
-    print("[GunGame] Event started! Players in area: " .. #gungame_players)
+    print("[GunGame] Event started! Players in area: " .. playerCount)
 end)
 
 net.Receive("gungame_stop_event", function(_, ply)
+    -- Restaurar a los jugadores antes de limpiar
+    for steamid64, data in pairs(gungame_players) do
+        if IsValid(data.player) then
+            data.player:StripWeapons()
+            data.player:KillSilent()
+        end
+    end
+    
     gungame_players = {}
     gungame_area_center = nil
     gungame_event_active = false
-    gungame_area_points = nil
+    gungame_area_points = {}
     gungame_respawn_time = {}
     
     -- Limpiar los spawn points
@@ -137,33 +160,106 @@ net.Receive("gungame_stop_event", function(_, ply)
         net.WriteTable({})
     net.Broadcast()
     
-    print("[GunGame] Event stopped")
+    print("[GunGame] Evento detenido y jugadores restaurados")
 end)
 
 -- Hooks
-hook.Add("PlayerSpawn", "gungame_respawn_in_area", function(ply)
+-- Función para manejar el respawn de un jugador
+local function HandlePlayerRespawn(ply, isImmediate)
+    if not IsValid(ply) then return end
     if not gungame_event_active or not gungame_area_center then return end
-    if not table.HasValue(gungame_players, ply:SteamID64()) then return end
     
-    gungame_respawn_time[ply:SteamID64()] = CurTime()
-    timer.Simple(0, function()
-        if IsValid(ply) then
-            -- Try to use a random spawn point if available, otherwise use area center
-            local spawnData = GUNGAME.GetSpawnPoint()
-            
-            if spawnData and spawnData.pos then
-                -- Usar la posición y ángulo guardados
-                ply:SetPos(spawnData.pos)
-                if spawnData.ang then
-                    ply:SetEyeAngles(spawnData.ang)
+    local steamid64 = ply:SteamID64()
+    if not gungame_players[steamid64] then return end
+    
+    -- Guardar el tiempo de respawn
+    gungame_respawn_time[steamid64] = CurTime()
+    
+    -- Obtener punto de spawn
+    local spawnPos = gungame_area_center
+    local spawnAng = Angle(0, math.random(0, 360), 0)
+    
+    -- Intentar obtener un punto de spawn personalizado
+    local spawnData = GUNGAME.GetSpawnPoint()
+    if spawnData and spawnData.pos then
+        spawnPos = spawnData.pos
+        if spawnData.ang then
+            spawnAng = spawnData.ang
+        end
+    end
+    
+    -- Aplicar posición y ángulo
+    if IsValid(ply) and spawnPos then
+        -- Si es un respawn inmediato, forzar la posición
+        if isImmediate then
+            ply:SetPos(spawnPos)
+            ply:SetEyeAngles(spawnAng)
+        else
+            -- Si no es inmediato, usar un timer muy corto
+            timer.Simple(0, function()
+                if IsValid(ply) and gungame_event_active then
+                    ply:SetPos(spawnPos)
+                    ply:SetEyeAngles(spawnAng)
                 end
-            else
-                -- Si no hay spawn points, usar el centro del área
-                ply:SetPos(gungame_area_center)
-                ply:SetEyeAngles(Angle(0, math.random(0, 360), 0))
+            end)
+        end
+        
+        -- Quitar armas
+        timer.Simple(0.1, function()
+            if IsValid(ply) then
+                ply:StripWeapons()
             end
+        end)
+    end
+end
+
+-- Hook para el respawn inicial
+hook.Add("PlayerSpawn", "gungame_respawn_in_area", function(ply)
+    if not IsValid(ply) then return end
+    if not gungame_event_active or not gungame_area_center then return end
+    
+    local steamid64 = ply:SteamID64()
+    if not gungame_players[steamid64] then return end
+    
+    -- Manejar el respawn de inmediato
+    HandlePlayerRespawn(ply, true)
+end)
+
+-- Hook para el respawn después de morir
+hook.Add("PlayerSpawn", "gungame_respawn_after_death", function(ply)
+    if not IsValid(ply) then return end
+    if not gungame_event_active or not gungame_area_center then return end
+    
+    local steamid64 = ply:SteamID64()
+    if not gungame_players[steamid64] then return end
+    
+    -- Usar un pequeño retraso para el respawn después de morir
+    timer.Simple(0.1, function()
+        if IsValid(ply) and gungame_event_active then
+            HandlePlayerRespawn(ply, false)
         end
     end)
+end)
+
+-- Hook para manejar las muertes de jugadores
+hook.Add("PlayerDeath", "gungame_player_death", function(victim, inflictor, attacker)
+    if not gungame_event_active then return end
+    
+    -- Verificar si el atacante es un jugador válido y no se está suicidando
+    if IsValid(attacker) and attacker:IsPlayer() and attacker ~= victim then
+        local attacker_steamid64 = attacker:SteamID64()
+        local victim_steamid64 = victim:SteamID64()
+        
+        -- Verificar si ambos están en el evento
+        if gungame_players[attacker_steamid64] and gungame_players[victim_steamid64] then
+            -- Incrementar el contador de kills
+            gungame_players[attacker_steamid64].kills = (gungame_players[attacker_steamid64].kills or 0) + 1
+            
+            -- Mostrar mensaje en el chat
+            local kills = gungame_players[attacker_steamid64].kills
+            PrintMessage(HUD_PRINTTALK, attacker:Nick() .. " ha asesinado a " .. victim:Nick() .. "! (Kills: " .. kills .. ")")
+        end
+    end
 end)
 
 -- Area check timer
@@ -172,7 +268,8 @@ timer.Create("gungame_area_check", GUNGAME.Config.CheckInterval, 0, function()
     
     local area = gungame_area_points
     for _, ply in ipairs(player.GetAll()) do
-        if table.HasValue(gungame_players, ply:SteamID64()) and IsValid(ply) and ply:Alive() then
+        local steamid64 = ply:SteamID64()
+        if gungame_players[steamid64] and IsValid(ply) and ply:Alive() then
             if not GUNGAME.PointInPoly2D(ply:GetPos(), area) then
                 ply:Kill()
             end
