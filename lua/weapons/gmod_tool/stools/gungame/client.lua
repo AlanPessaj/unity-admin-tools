@@ -36,8 +36,7 @@ net.Receive("gungame_event_stopped", function()
         GUNGAME.SetButtonState(false)
     end
     
-    -- Notificar al usuario
-    notification.AddLegacy("Evento detenido y spawn points limpiados", NOTIFY_CLEANUP, 3)
+    notification.AddLegacy("Event stopped", NOTIFY_CLEANUP, 3)
     surface.PlaySound("buttons/button15.wav")
 end)
 
@@ -124,7 +123,7 @@ function TOOL.BuildCPanel(panel)
     local spawnLabel = vgui.Create("DLabel", spawnHeader)
     spawnLabel:Dock(LEFT)
     spawnLabel:DockMargin(8, 0, 0, 0)
-    spawnLabel:SetText("Spawn Points")
+    spawnLabel:SetText("Spawn Points (at least one per player)")
     spawnLabel:SetFont("DermaDefaultBold")
     spawnLabel:SetTextColor(Color(40, 40, 40))
     spawnLabel:SizeToContents()
@@ -204,6 +203,8 @@ function TOOL.BuildCPanel(panel)
                     net.Start("gungame_start_event")
                     net.SendToServer()
                     GUNGAME.SetButtonState(true)
+                    notification.AddLegacy("Event started", NOTIFY_CLEANUP, 3)
+                    surface.PlaySound("buttons/button15.wav")
                 end,
                 "No"
             )

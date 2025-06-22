@@ -80,7 +80,7 @@ net.Receive("gungame_stop_event", function(_, ply)
         net.WriteTable({})
     net.Broadcast()
     
-    print("[GunGame] Evento detenido y spawn points limpiados")
+    print("[GunGame] Event stopped")
 end)
 
 -- Hooks
@@ -200,40 +200,68 @@ net.Receive("gungame_clear_spawnpoints", function(_, ply)
     net.Broadcast()
 end)
 
--- Function to get the best spawn point (furthest from other players)
+-- Function to get the best spawn point (prioritize empty spawns)
 function GUNGAME.GetSpawnPoint()
     if #spawnPoints == 0 then return nil end
     
-    -- Si solo hay un spawn point, devolverlo directamente
-    if #spawnPoints == 1 then return spawnPoints[1] end
+    local safeSpawns = {}
+    local minSafeDistance = 300
+    local activePlayers = {}
+    for _, steamID in ipairs(gungame_players or {}) do
+        local ply = player.GetBySteamID64(steamID)
+        if IsValid(ply) and ply:Alive() then
+            table.insert(activePlayers, ply)
+        end
+    end
     
-    local players = player.GetAll()
+    -- Si no hay jugadores activos, devolver un spawn aleatorio
+    if #activePlayers == 0 then
+        return table.Random(spawnPoints)
+    end
+    
+    -- Buscar spawns seguros (sin jugadores cerca)
+    for _, spawn in ipairs(spawnPoints) do
+        local isSafe = true
+        local spawnPos = spawn.pos
+        
+        for _, ply in ipairs(activePlayers) do
+            if spawnPos:Distance(ply:GetPos()) < minSafeDistance then
+                isSafe = false
+                break
+            end
+        end
+        
+        if isSafe then
+            table.insert(safeSpawns, spawn)
+        end
+    end
+    
+    -- Si hay spawns seguros, elegir uno al azar
+    if #safeSpawns > 0 then
+        return table.Random(safeSpawns)
+    end
+    
+    -- Si no hay spawns seguros, encontrar el más alejado de otros jugadores
     local bestSpawn = nil
     local maxMinDistance = -1
     
-    -- Para cada spawn point, encontrar la distancia al jugador más cercano
     for _, spawn in ipairs(spawnPoints) do
         local minDistance = math.huge
         local spawnPos = spawn.pos
         
-        -- Encontrar la distancia al jugador más cercano a este spawn point
-        for _, ply in ipairs(players) do
-            if IsValid(ply) and ply:Alive() then
-                local dist = spawnPos:Distance(ply:GetPos())
-                if dist < minDistance then
-                    minDistance = dist
-                end
+        for _, ply in ipairs(activePlayers) do
+            local dist = spawnPos:Distance(ply:GetPos())
+            if dist < minDistance then
+                minDistance = dist
             end
         end
         
-        -- Si este spawn point está más lejos de todos los jugadores que el mejor actual, actualizamos
         if minDistance > maxMinDistance then
             maxMinDistance = minDistance
             bestSpawn = spawn
         end
     end
     
-    -- Si por alguna razón no encontramos un buen spawn (no debería pasar), devolvemos uno aleatorio
     return bestSpawn or table.Random(spawnPoints)
 end
 
