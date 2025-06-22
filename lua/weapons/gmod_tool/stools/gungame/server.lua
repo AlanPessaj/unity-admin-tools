@@ -12,6 +12,7 @@ util.AddNetworkString("gungame_event_stopped")
 util.AddNetworkString("gungame_add_spawnpoint")
 util.AddNetworkString("gungame_clear_spawnpoints")
 util.AddNetworkString("gungame_update_spawnpoints")
+util.AddNetworkString("gungame_sync_weapons")
 
 -- Server state
 local selecting = {}
@@ -68,6 +69,28 @@ net.Receive("gungame_validate_weapon", function(len, ply)
     net.Send(ply)
 end)
 
+-- Sincronizar lista de armas desde el cliente
+net.Receive("gungame_sync_weapons", function(_, ply)
+    if not IsValid(ply) then return end
+    
+    -- Leer la cantidad de armas
+    local count = net.ReadUInt(8) -- Hasta 255 armas
+    local weaponsList = {}
+    
+    -- Leer cada arma
+    for i = 1, count do
+        local weaponID = net.ReadString()
+        if weaponID and weaponID ~= "" then
+            table.insert(weaponsList, weaponID)
+        end
+    end
+    
+    -- Actualizar la lista de armas
+    GUNGAME.Weapons = weaponsList
+    
+    print("[GunGame] Lista de armas actualizada desde el cliente. Total: " .. #weaponsList)
+end)
+
 -- Limpiar la lista de armas
 net.Receive("gungame_clear_weapons", function(len, ply)
     if not IsValid(ply) then return end
@@ -78,6 +101,8 @@ net.Receive("gungame_clear_weapons", function(len, ply)
     -- Notificar a todos los clientes
     net.Start("gungame_clear_weapons")
     net.Broadcast()
+    
+    print("[GunGame] Lista de armas limpiada")
 end)
 
 -- Net receivers
@@ -104,6 +129,21 @@ net.Receive("gungame_area_clear", function(_, ply)
     net.Broadcast()
 end)
 
+-- Función para dar un arma a un jugador según su índice de kill
+local function GiveWeaponByKillCount(ply, killCount)
+    if not IsValid(ply) then return end
+    if not GUNGAME.Weapons or #GUNGAME.Weapons == 0 then return end
+    
+    -- Usar el operador módulo para hacer un bucle en la lista de armas
+    local weaponIndex = (killCount % #GUNGAME.Weapons) + 1
+    local weaponClass = GUNGAME.Weapons[weaponIndex]
+    
+    if weaponClass then
+        ply:Give(weaponClass)
+        print("[GunGame] Dando arma " .. weaponClass .. " a " .. ply:Nick() .. " (kills: " .. killCount .. ")")
+    end
+end
+
 net.Receive("gungame_start_event", function(_, ply)
     local area = points[ply]
     if not area or #area < GUNGAME.Config.MinPoints then return end
@@ -121,16 +161,33 @@ net.Receive("gungame_start_event", function(_, ply)
                 gungame_players[steamid64] = {
                     player = p,
                     kills = 0,
-                    steamid64 = steamid64
+                    steamid64 = steamid64,
+                    weaponIndex = 0 -- Índice del arma actual
                 }
                 playerCount = playerCount + 1
+                
+                -- Dar arma inicial (índice 0)
+                p:StripWeapons()
+                if GUNGAME.Weapons and #GUNGAME.Weapons > 0 then
+                    local firstWeapon = GUNGAME.Weapons[1]
+                    if firstWeapon then
+                        p:Give(firstWeapon)
+                        print("[GunGame] Arma inicial (" .. firstWeapon .. ") dada a " .. p:Nick())
+                    end
+                end
             end
-            p:StripWeapons()
         end
     end
 
     gungame_event_active = true
     print("[GunGame] Event started! Players in area: " .. playerCount)
+    
+    -- Mostrar mensaje a todos los jugadores
+    for _, p in ipairs(player.GetAll()) do
+        if gungame_players[p:SteamID64()] then
+            p:ChatPrint("[GunGame] ¡El evento ha comenzado! Mata jugadores para obtener mejores armas.")
+        end
+    end
 end)
 
 net.Receive("gungame_stop_event", function(_, ply)
@@ -203,13 +260,6 @@ local function HandlePlayerRespawn(ply, isImmediate)
                 end
             end)
         end
-        
-        -- Quitar armas
-        timer.Simple(0.1, function()
-            if IsValid(ply) then
-                ply:StripWeapons()
-            end
-        end)
     end
 end
 
@@ -231,12 +281,26 @@ hook.Add("PlayerSpawn", "gungame_respawn_after_death", function(ply)
     if not gungame_event_active or not gungame_area_center then return end
     
     local steamid64 = ply:SteamID64()
-    if not gungame_players[steamid64] then return end
+    local playerData = gungame_players[steamid64]
+    if not playerData then return end
     
     -- Usar un pequeño retraso para el respawn después de morir
     timer.Simple(0.1, function()
         if IsValid(ply) and gungame_event_active then
             HandlePlayerRespawn(ply, false)
+            
+            -- Asegurarse de que el jugador tenga su arma
+            if GUNGAME.Weapons and #GUNGAME.Weapons > 0 then
+                local weaponIndex = (playerData.kills % #GUNGAME.Weapons) + 1
+                local weaponClass = GUNGAME.Weapons[weaponIndex]
+                
+                if weaponClass then
+                    ply:StripWeapons()
+                    ply:Give(weaponClass)
+                    ply:SelectWeapon(weaponClass)
+                    print("[GunGame] Arma " .. weaponClass .. " dada a " .. ply:Nick() .. " (kills: " .. playerData.kills .. ")")
+                end
+            end
         end
     end)
 end)
@@ -253,11 +317,29 @@ hook.Add("PlayerDeath", "gungame_player_death", function(victim, inflictor, atta
         -- Verificar si ambos están en el evento
         if gungame_players[attacker_steamid64] and gungame_players[victim_steamid64] then
             -- Incrementar el contador de kills
-            gungame_players[attacker_steamid64].kills = (gungame_players[attacker_steamid64].kills or 0) + 1
+            local attackerData = gungame_players[attacker_steamid64]
+            attackerData.kills = (attackerData.kills or 0) + 1
+            
+            -- Actualizar el arma del atacante
+            if GUNGAME.Weapons and #GUNGAME.Weapons > 0 then
+                local nextWeaponIndex = (attackerData.kills % #GUNGAME.Weapons) + 1
+                local nextWeapon = GUNGAME.Weapons[nextWeaponIndex]
+                
+                if nextWeapon then
+                    timer.Simple(0.1, function()
+                        if IsValid(attacker) then
+                            attacker:StripWeapons()
+                            attacker:Give(nextWeapon)
+                            attacker:SelectWeapon(nextWeapon)
+                            attacker:ChatPrint("¡Nueva arma desbloqueada: " .. nextWeapon .. "!")
+                            print("[GunGame] Arma " .. nextWeapon .. " dada a " .. attacker:Nick() .. " después de matar a " .. victim:Nick())
+                        end
+                    end)
+                end
+            end
             
             -- Mostrar mensaje en el chat
-            local kills = gungame_players[attacker_steamid64].kills
-            PrintMessage(HUD_PRINTTALK, attacker:Nick() .. " ha asesinado a " .. victim:Nick() .. "! (Kills: " .. kills .. ")")
+            PrintMessage(HUD_PRINTTALK, attacker:Nick() .. " ha asesinado a " .. victim:Nick() .. "! (Kills: " .. attackerData.kills .. ")")
         end
     end
 end)

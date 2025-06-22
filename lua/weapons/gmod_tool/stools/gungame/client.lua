@@ -60,12 +60,29 @@ local function UpdateWeaponList()
     end
 end
 
+-- Función para sincronizar la lista de armas con el servidor
+local function SyncWeaponsWithServer()
+    -- Enviar la lista de armas al servidor
+    net.Start("gungame_sync_weapons")
+        net.WriteUInt(#GUNGAME.Weapons, 8) -- Enviar la cantidad de armas (hasta 255)
+        
+        -- Enviar cada arma
+        for _, weaponID in ipairs(GUNGAME.Weapons) do
+            net.WriteString(weaponID or "")
+        end
+    net.SendToServer()
+    
+    print("[GunGame] Lista de " .. #GUNGAME.Weapons .. " armas enviada al servidor")
+end
+
 -- Función para limpiar la lista de armas
 local function ClearWeaponList()
     GUNGAME.Weapons = {}
     if IsValid(weaponListPanel) then
         weaponListPanel:Clear()
     end
+    -- Sincronizar la lista vacía con el servidor
+    SyncWeaponsWithServer()
 end
 
 -- Manejadores de red para las armas
@@ -77,6 +94,8 @@ net.Receive("gungame_weapon_validated", function()
         table.insert(GUNGAME.Weapons, weaponID)
         UpdateWeaponList()
         notification.AddLegacy("Added weapon: " .. weaponID, NOTIFY_GENERIC, 2)
+        -- Sincronizar la lista actualizada con el servidor
+        SyncWeaponsWithServer()
     else
         notification.AddLegacy("Invalid weapon: " .. weaponID, NOTIFY_ERROR, 2)
     end

@@ -7,6 +7,16 @@ GUNGAME.Weapons = GUNGAME.Weapons or {}
 util.AddNetworkString("gungame_validate_weapon")
 util.AddNetworkString("gungame_weapon_validated")
 util.AddNetworkString("gungame_clear_weapons")
+util.AddNetworkString("gungame_area_start")
+util.AddNetworkString("gungame_area_clear")
+util.AddNetworkString("gungame_area_update_points")
+util.AddNetworkString("gungame_start_event")
+util.AddNetworkString("gungame_stop_event")
+util.AddNetworkString("gungame_event_stopped")
+util.AddNetworkString("gungame_add_spawnpoint")
+util.AddNetworkString("gungame_clear_spawnpoints")
+util.AddNetworkString("gungame_update_spawnpoints")
+util.AddNetworkString("gungame_sync_weapons")
 
 GUNGAME.Config = {
     MinPoints = 3, -- Minimum points to define an area
