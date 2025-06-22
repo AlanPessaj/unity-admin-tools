@@ -1,6 +1,13 @@
 -- Shared configuration and utility functions for GunGame
 
 GUNGAME = GUNGAME or {}
+GUNGAME.Weapons = GUNGAME.Weapons or {}
+
+-- Network messages
+util.AddNetworkString("gungame_validate_weapon")
+util.AddNetworkString("gungame_weapon_validated")
+util.AddNetworkString("gungame_clear_weapons")
+
 GUNGAME.Config = {
     MinPoints = 3, -- Minimum points to define an area
     MaxPoints = 4, -- Maximum points to define an area

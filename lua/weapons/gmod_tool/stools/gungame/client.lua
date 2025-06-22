@@ -6,6 +6,8 @@ GUNGAME.AreaPoints = {}
 GUNGAME.AreaPanel = nil
 GUNGAME.SpawnPoints = {}
 GUNGAME.SpawnPanel = nil
+GUNGAME.Weapons = {}
+local weaponListPanel -- Panel que contendrá la lista de armas
 
 -- Language strings
 language.Add("tool.gungame.name", "[CGO] GunGame Tool")
@@ -38,6 +40,49 @@ net.Receive("gungame_event_stopped", function()
     
     notification.AddLegacy("Event stopped", NOTIFY_CLEANUP, 3)
     surface.PlaySound("buttons/button15.wav")
+end)
+
+-- Función para actualizar la lista de armas en la UI
+local function UpdateWeaponList()
+    if not IsValid(weaponListPanel) then return end
+    
+    -- Limpiar la lista actual
+    weaponListPanel:Clear()
+    
+    -- Agregar cada arma como una etiqueta
+    for _, weaponID in ipairs(GUNGAME.Weapons or {}) do
+        local label = weaponListPanel:Add("DLabel")
+        label:SetText(weaponID)
+        label:Dock(TOP)
+        label:DockMargin(0, 2, 0, 2)
+        label:SetTextColor(Color(40, 40, 40))
+    end
+end
+
+-- Función para limpiar la lista de armas
+local function ClearWeaponList()
+    GUNGAME.Weapons = {}
+    if IsValid(weaponListPanel) then
+        weaponListPanel:Clear()
+    end
+end
+
+-- Manejadores de red para las armas
+net.Receive("gungame_weapon_validated", function()
+    local isValid = net.ReadBool()
+    local weaponID = net.ReadString()
+    
+    if isValid then
+        table.insert(GUNGAME.Weapons, weaponID)
+        UpdateWeaponList()
+        notification.AddLegacy("Added weapon: " .. weaponID, NOTIFY_GENERIC, 2)
+    else
+        notification.AddLegacy("Invalid weapon: " .. weaponID, NOTIFY_ERROR, 2)
+    end
+end)
+
+net.Receive("gungame_clear_weapons", function()
+    ClearWeaponList()
 end)
 
 -- Tool panel creation
@@ -163,6 +208,85 @@ function TOOL.BuildCPanel(panel)
     btnClearSpawns.DoClick = function()
         net.Start("gungame_clear_spawnpoints")
         net.SendToServer()
+    end
+
+    -- Weapons Section
+    local weaponsHeader = vgui.Create("DPanel", panel)
+    weaponsHeader:Dock(TOP)
+    weaponsHeader:DockMargin(0, 24, 0, 0)
+    weaponsHeader:SetTall(32)
+    weaponsHeader:SetPaintBackground(false)
+    
+    local weaponsLabel = vgui.Create("DLabel", weaponsHeader)
+    weaponsLabel:Dock(LEFT)
+    weaponsLabel:DockMargin(0, 0, 0, 0)
+    weaponsLabel:SetText("Weapons")
+    weaponsLabel:SetFont("DermaDefaultBold")
+    weaponsLabel:SetTextColor(Color(40, 40, 40))
+    weaponsLabel:SizeToContents()
+
+    -- Weapons input container
+    local weaponsInputContainer = vgui.Create("DPanel", panel)
+    weaponsInputContainer:Dock(TOP)
+    weaponsInputContainer:DockMargin(0, 4, 0, 4)
+    weaponsInputContainer:SetTall(28)
+    weaponsInputContainer:SetPaintBackground(false)
+    
+    -- Text entry for weapon class
+    local weaponEntry = vgui.Create("DTextEntry", weaponsInputContainer)
+    weaponEntry:Dock(FILL)
+    weaponEntry:SetPlaceholderText("Weapon ID")
+    weaponEntry:SetUpdateOnType(true)
+    
+    -- Button container for the two square buttons
+    local buttonContainer = vgui.Create("DPanel", weaponsInputContainer)
+    buttonContainer:Dock(RIGHT)
+    buttonContainer:SetWide(60)
+    buttonContainer:SetPaintBackground(false)
+    
+    -- Add button (+)
+    local addButton = vgui.Create("DButton", buttonContainer)
+    addButton:SetText("+")
+    addButton:Dock(LEFT)
+    addButton:SetWide(28)
+    addButton.DoClick = function()
+        local weaponID = string.Trim(weaponEntry:GetValue())
+        if weaponID == "" then return end
+        
+        -- Verificar si ya existe
+        if table.HasValue(GUNGAME.Weapons, weaponID) then
+            notification.AddLegacy("Weapon already in list!", NOTIFY_ERROR, 2)
+            return
+        end
+        
+        -- Validar con el servidor
+        net.Start("gungame_validate_weapon")
+            net.WriteString(weaponID)
+        net.SendToServer()
+        
+        weaponEntry:SetValue("")
+    end
+    
+    -- Reset button (R)
+    local randomButton = vgui.Create("DButton", buttonContainer)
+    randomButton:SetText("R")
+    randomButton:Dock(RIGHT)
+    randomButton:SetWide(28)
+    randomButton.DoClick = function()
+        net.Start("gungame_clear_weapons")
+        net.SendToServer()
+        ClearWeaponList()
+        notification.AddLegacy("Weapon list cleared", NOTIFY_GENERIC, 2)
+    end
+    
+    -- Weapon list panel
+    weaponListPanel = vgui.Create("DScrollPanel", panel)
+    weaponListPanel:Dock(TOP)
+    weaponListPanel:DockMargin(0, 0, 0, 16)
+    weaponListPanel:SetTall(100)
+    weaponListPanel:SetPaintBackground(true)
+    weaponListPanel.Paint = function(self, w, h)
+        draw.RoundedBox(4, 0, 0, w, h, Color(240, 240, 240))
     end
 
     -- Event control button

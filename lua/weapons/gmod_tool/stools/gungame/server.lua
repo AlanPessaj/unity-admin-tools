@@ -24,6 +24,47 @@ local gungame_area_points = nil
 local gungame_respawn_time = {}
 
 -- Net receivers
+
+-- Iniciar la selección del área
+net.Receive("gungame_area_start", function(_, ply)
+    if not IsValid(ply) then return end
+    
+    -- Iniciar modo de selección para este jugador
+    selecting[ply] = true
+    points[ply] = {}
+    
+    -- Enviar puntos vacíos para limpiar cualquier selección previa
+    net.Start("gungame_area_update_points")
+        net.WriteTable({})
+    net.Send(ply)
+end)
+
+-- Validar un arma con el servidor
+net.Receive("gungame_validate_weapon", function(len, ply)
+    if not IsValid(ply) then return end
+    
+    local weaponID = net.ReadString()
+    local isValid = weapons.Get(weaponID) ~= nil
+    
+    net.Start("gungame_weapon_validated")
+        net.WriteBool(isValid)
+        net.WriteString(weaponID)
+    net.Send(ply)
+end)
+
+-- Limpiar la lista de armas
+net.Receive("gungame_clear_weapons", function(len, ply)
+    if not IsValid(ply) then return end
+    
+    -- Limpiar la lista local
+    GUNGAME.Weapons = {}
+    
+    -- Notificar a todos los clientes
+    net.Start("gungame_clear_weapons")
+    net.Broadcast()
+end)
+
+-- Net receivers
 net.Receive("gungame_area_start", function(_, ply)
     if gungame_event_active then return end
     selecting[ply] = true
@@ -125,7 +166,6 @@ end)
 
 -- TOOL functions
 TOOL.LeftClick = function(self, trace)
-    if CLIENT then return true end
     if not selecting[self:GetOwner()] then return false end
     
     local ply = self:GetOwner()
