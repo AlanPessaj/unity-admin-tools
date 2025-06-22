@@ -20,8 +20,19 @@ local spawnPoints = {}
 local gungame_players = {}
 local gungame_area_center = nil
 local gungame_event_active = false
-local gungame_area_points = nil
+local gungame_area_points = {}
 local gungame_respawn_time = {}
+
+-- Function to update area points for all clients
+local function UpdateAreaPointsForAll(plyPoints, sender)
+    net.Start("gungame_area_update_points")
+        net.WriteTable(plyPoints or {})
+    if sender then
+        net.SendOmit(sender) -- Send to all except the sender (who already has the update)
+    else
+        net.Broadcast()
+    end
+end
 
 -- Net receivers
 
@@ -31,11 +42,11 @@ net.Receive("gungame_area_start", function(_, ply)
     
     -- Iniciar modo de selección para este jugador
     selecting[ply] = true
-    points[ply] = {}
+    points[ply] = table.Copy(gungame_area_points) -- Initialize with current global points
     
-    -- Enviar puntos vacíos para limpiar cualquier selección previa
+    -- Enviar los puntos actuales al jugador que acaba de iniciar la selección
     net.Start("gungame_area_update_points")
-        net.WriteTable({})
+        net.WriteTable(gungame_area_points)
     net.Send(ply)
 end)
 
@@ -76,11 +87,16 @@ end)
 
 net.Receive("gungame_area_clear", function(_, ply)
     if gungame_event_active then return end
+    
+    -- Clear points for this player
     selecting[ply] = false
     points[ply] = {}
+    
+    -- Clear global points and notify all clients
+    gungame_area_points = {}
     net.Start("gungame_area_update_points")
         net.WriteTable({})
-    net.Send(ply)
+    net.Broadcast()
 end)
 
 net.Receive("gungame_start_event", function(_, ply)
@@ -172,14 +188,19 @@ TOOL.LeftClick = function(self, trace)
     points[ply] = points[ply] or {}
     
     if #points[ply] < GUNGAME.Config.MaxPoints then
-        table.insert(points[ply], trace.HitPos + Vector(0, 0, GUNGAME.Config.RespawnHeight))
+        local newPoint = trace.HitPos + Vector(0, 0, GUNGAME.Config.RespawnHeight)
+        table.insert(points[ply], newPoint)
+        
+        -- Update global points and sync to all clients
+        gungame_area_points = table.Copy(points[ply])
         net.Start("gungame_area_update_points")
-            net.WriteTable(points[ply])
-        net.Send(ply)
-    end
-    
-    if #points[ply] >= GUNGAME.Config.MaxPoints then
-        selecting[ply] = false
+            net.WriteTable(gungame_area_points)
+        net.Broadcast()
+        
+        -- If this completes the area, stop selecting
+        if #points[ply] >= GUNGAME.Config.MaxPoints then
+            selecting[ply] = false
+        end
     end
     
     return true
@@ -189,18 +210,17 @@ TOOL.RightClick = function() return false end
 
 TOOL.Deploy = function(self)
     local ply = self:GetOwner()
+    -- Send current area points to the player who deployed the tool
     net.Start("gungame_area_update_points")
-        net.WriteTable(points[ply] or {})
+        net.WriteTable(gungame_area_points)
     net.Send(ply)
 end
 
 TOOL.Holster = function(self)
     local ply = self:GetOwner()
     selecting[ply] = false
-    points[ply] = {}
-    net.Start("gungame_area_update_points")
-        net.WriteTable({})
-    net.Send(ply)
+    -- Don't clear points when holstering, only clear when explicitly requested
+    -- No need to send any update here as we want to keep the points
 end
 
 -- Spawn points network handlers

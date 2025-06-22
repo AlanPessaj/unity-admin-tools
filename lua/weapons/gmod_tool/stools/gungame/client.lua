@@ -17,6 +17,7 @@ language.Add("tool.gungame.0", "Configura las opciones en el menú de la herrami
 -- Network receivers
 net.Receive("gungame_area_update_points", function()
     GUNGAME.AreaPoints = net.ReadTable() or {}
+    -- Update the panel if it exists
     if IsValid(GUNGAME.AreaPanel) then
         GUNGAME.AreaPanel:InvalidateLayout(true)
     end
@@ -339,6 +340,8 @@ function TOOL.BuildCPanel(panel)
                 "Yes", function()
                     net.Start("gungame_stop_event")
                     net.SendToServer()
+                    net.Start("gungame_area_clear")
+                    net.SendToServer()
                     GUNGAME.SetButtonState(false)
                 end,
                 "No"
@@ -364,11 +367,14 @@ end)
 hook.Add("PostDrawTranslucentRenderables", "gungame_area_draw_points", function()
     local ply = LocalPlayer()
     local wep = ply:GetActiveWeapon()
-    if not (IsValid(wep) and wep:GetClass() == "gmod_tool" and ply:GetTool() and ply:GetTool().Mode == "gungame") then return end
+    local isToolActive = IsValid(wep) and wep:GetClass() == "gmod_tool" and ply:GetTool() and ply:GetTool().Mode == "gungame"
     
-    -- Draw area points and lines
+    -- Only draw if we have the tool active
+    if not isToolActive then return end
+    
+    -- Get the synchronized area points
     local points = GUNGAME.AreaPoints or {}
-    if points and #points > 0 then
+    if #points > 0 then
         render.SetColorMaterial()
         for i, pos in ipairs(points) do
             render.DrawSphere(pos, 8, 16, 16, Color(255, 0, 0, 180))
@@ -395,7 +401,9 @@ hook.Add("PostDrawTranslucentRenderables", "gungame_area_draw_points", function(
         end
     end
     
-    -- Draw spawn points
+    -- Draw spawn points (only when the tool is active)
+    if not isToolActive then return end
+    
     local spawnPoints = GUNGAME.SpawnPoints or {}
     if #spawnPoints > 0 then
         render.SetColorMaterial()
