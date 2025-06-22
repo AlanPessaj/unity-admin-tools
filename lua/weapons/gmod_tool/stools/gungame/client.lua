@@ -1,0 +1,302 @@
+include("shared.lua")
+
+-- Client state
+local GUNGAME = GUNGAME or {}
+GUNGAME.AreaPoints = {}
+GUNGAME.AreaPanel = nil
+GUNGAME.SpawnPoints = {}
+GUNGAME.SpawnPanel = nil
+
+-- Language strings
+language.Add("tool.gungame.name", "[CGO] GunGame Tool")
+language.Add("tool.gungame.desc", "Creado por AlanPessaj ◢ ◤")
+language.Add("tool.gungame.0", "Configura las opciones en el menú de la herramienta.")
+
+-- Network receivers
+net.Receive("gungame_area_update_points", function()
+    GUNGAME.AreaPoints = net.ReadTable() or {}
+    if IsValid(GUNGAME.AreaPanel) then
+        GUNGAME.AreaPanel:InvalidateLayout(true)
+    end
+end)
+
+net.Receive("gungame_update_spawnpoints", function()
+    GUNGAME.SpawnPoints = net.ReadTable() or {}
+    if IsValid(GUNGAME.SpawnPanel) then
+        GUNGAME.SpawnPanel:InvalidateLayout(true)
+    end
+end)
+
+net.Receive("gungame_event_stopped", function()
+    -- Limpiar los spawn points locales
+    GUNGAME.SpawnPoints = {}
+    
+    -- Actualizar el estado de los botones
+    if GUNGAME.SetButtonState then
+        GUNGAME.SetButtonState(false)
+    end
+    
+    -- Notificar al usuario
+    notification.AddLegacy("Evento detenido y spawn points limpiados", NOTIFY_CLEANUP, 3)
+    surface.PlaySound("buttons/button15.wav")
+end)
+
+-- Tool panel creation
+function TOOL.BuildCPanel(panel)
+    if panel.SetName then panel:SetName("") end
+    
+    GUNGAME.AreaPanel = panel
+    panel:DockPadding(8, 8, 8, 8)
+    
+    -- Header
+    local headerPanel = vgui.Create("DPanel", panel)
+    headerPanel:Dock(TOP)
+    headerPanel:SetTall(32)
+    headerPanel:SetPaintBackground(false)
+
+    -- Status circle
+    local circle = vgui.Create("DPanel", headerPanel)
+    circle:Dock(LEFT)
+    circle:SetWide(28)
+    circle.Paint = function(self, w, h)
+        local points = GUNGAME.AreaPoints or {}
+        local color = (#points >= 4) and Color(0, 200, 0) or Color(200, 0, 0)
+        draw.RoundedBox(8, 6, 6, 20, 20, color)
+    end
+
+    -- Header label
+    local label = vgui.Create("DLabel", headerPanel)
+    label:Dock(LEFT)
+    label:DockMargin(8, 0, 0, 0)
+    label:SetText("Set the game area")
+    label:SetFont("DermaDefaultBold")
+    label:SetTextColor(Color(40, 40, 40))
+    label:SizeToContents()
+
+    -- Panel styling
+    panel.Paint = function(self, w, h)
+        draw.RoundedBox(8, 0, 0, w, h, Color(255, 255, 255, 245))
+        surface.SetDrawColor(180, 180, 180, 255)
+        surface.DrawOutlinedRect(0, 0, w, h)
+    end
+
+    -- Select area button
+    local btnSelect = vgui.Create("DButton", panel)
+    btnSelect:SetText("Select area")
+    btnSelect:Dock(TOP)
+    btnSelect:DockMargin(0, 8, 0, 4)
+    btnSelect:SetTall(28)
+    btnSelect:SetFont("DermaDefaultBold")
+    btnSelect:SetWide(panel:GetWide() - 16)
+    btnSelect.DoClick = function()
+        RunConsoleCommand("gungame_area_start")
+    end
+
+    -- Delete selection button
+    local btnDelete = vgui.Create("DButton", panel)
+    btnDelete:SetText("Delete selection")
+    btnDelete:Dock(TOP)
+    btnDelete:DockMargin(0, 4, 0, 16)
+    btnDelete:SetTall(28)
+    btnDelete:SetFont("DermaDefaultBold")
+    btnDelete:SetWide(panel:GetWide() - 16)
+    btnDelete.DoClick = function()
+        net.Start("gungame_area_clear")
+        net.SendToServer()
+    end
+
+    -- Spawn Points Section
+    local spawnHeader = vgui.Create("DPanel", panel)
+    spawnHeader:Dock(TOP)
+    spawnHeader:DockMargin(0, 24, 0, 0)
+    spawnHeader:SetTall(32)
+    spawnHeader:SetPaintBackground(false)
+
+    local spawnCircle = vgui.Create("DPanel", spawnHeader)
+    spawnCircle:Dock(LEFT)
+    spawnCircle:SetWide(28)
+    spawnCircle.Paint = function(self, w, h)
+        local hasPoints = #(GUNGAME.SpawnPoints or {}) > 0
+        local color = hasPoints and Color(0, 200, 0) or Color(200, 0, 0)
+        draw.RoundedBox(8, 6, 6, 20, 20, color)
+    end
+
+    local spawnLabel = vgui.Create("DLabel", spawnHeader)
+    spawnLabel:Dock(LEFT)
+    spawnLabel:DockMargin(8, 0, 0, 0)
+    spawnLabel:SetText("Spawn Points")
+    spawnLabel:SetFont("DermaDefaultBold")
+    spawnLabel:SetTextColor(Color(40, 40, 40))
+    spawnLabel:SizeToContents()
+
+    local btnAddSpawn = vgui.Create("DButton", panel)
+    btnAddSpawn:SetText("Add Spawn Point")
+    btnAddSpawn:Dock(TOP)
+    btnAddSpawn:DockMargin(0, 8, 0, 4)
+    btnAddSpawn:SetTall(28)
+    btnAddSpawn:SetFont("DermaDefaultBold")
+    btnAddSpawn:SetWide(panel:GetWide() - 16)
+    btnAddSpawn.DoClick = function()
+        local ply = LocalPlayer()
+        if not IsValid(ply) then return end
+        
+        -- Obtener posición y ángulo del jugador
+        local pos = ply:GetPos()
+        local ang = ply:EyeAngles()
+        
+        net.Start("gungame_add_spawnpoint")
+            net.WriteVector(pos)
+            net.WriteAngle(ang)
+        net.SendToServer()
+        
+        -- Notificación de confirmación
+        notification.AddLegacy("Spawn point agregado!", NOTIFY_GENERIC, 2)
+        surface.PlaySound("buttons/button14.wav")
+    end
+
+    local btnClearSpawns = vgui.Create("DButton", panel)
+    btnClearSpawns:SetText("Clear Spawn Points")
+    btnClearSpawns:Dock(TOP)
+    btnClearSpawns:DockMargin(0, 4, 0, 16)
+    btnClearSpawns:SetTall(28)
+    btnClearSpawns:SetFont("DermaDefaultBold")
+    btnClearSpawns:SetWide(panel:GetWide() - 16)
+    btnClearSpawns.DoClick = function()
+        net.Start("gungame_clear_spawnpoints")
+        net.SendToServer()
+    end
+
+    -- Event control button
+    GUNGAME.EventActive = false
+    local btnStart = vgui.Create("DButton", panel)
+    btnStart:SetText("Start event")
+    btnStart:Dock(TOP)
+    btnStart:DockMargin(0, 24, 0, 0)
+    btnStart:SetTall(32)
+    btnStart:SetFont("DermaDefaultBold")
+    btnStart:SetWide(panel:GetWide() - 16)
+
+    -- Button state management
+    GUNGAME.SetButtonState = function(active)
+        GUNGAME.EventActive = active
+        if active then
+            btnStart:SetText("Stop event")
+            btnSelect:SetEnabled(false)
+            btnDelete:SetEnabled(false)
+            btnAddSpawn:SetEnabled(false)
+            btnClearSpawns:SetEnabled(false)
+        else
+            btnStart:SetText("Start event")
+            btnSelect:SetEnabled(true)
+            btnDelete:SetEnabled(true)
+            btnAddSpawn:SetEnabled(true)
+            btnClearSpawns:SetEnabled(true)
+        end
+    end
+
+    -- Start/stop event button handler
+    btnStart.DoClick = function()
+        if not GUNGAME.EventActive then
+            Derma_Query(
+                "Are you sure you want to start the event?",
+                "Confirm event start",
+                "Yes", function()
+                    net.Start("gungame_start_event")
+                    net.SendToServer()
+                    GUNGAME.SetButtonState(true)
+                end,
+                "No"
+            )
+        else
+            Derma_Query(
+                "Are you sure you want to stop the event?",
+                "Confirm event stop",
+                "Yes", function()
+                    net.Start("gungame_stop_event")
+                    net.SendToServer()
+                    GUNGAME.SetButtonState(false)
+                end,
+                "No"
+            )
+        end
+    end
+end
+
+-- Console command for area selection
+concommand.Add("gungame_area_start", function()
+    RunConsoleCommand("gmod_toolmode", "gungame")
+    local ply = LocalPlayer()
+    timer.Simple(0, function()
+        if IsValid(ply) then
+            ply:ConCommand("use gmod_tool")
+        end
+    end)
+    net.Start("gungame_area_start")
+    net.SendToServer()
+end)
+
+-- Drawing the area points and lines
+hook.Add("PostDrawTranslucentRenderables", "gungame_area_draw_points", function()
+    local ply = LocalPlayer()
+    local wep = ply:GetActiveWeapon()
+    if not (IsValid(wep) and wep:GetClass() == "gmod_tool" and ply:GetTool() and ply:GetTool().Mode == "gungame") then return end
+    
+    -- Draw area points and lines
+    local points = GUNGAME.AreaPoints or {}
+    if points and #points > 0 then
+        render.SetColorMaterial()
+        for i, pos in ipairs(points) do
+            render.DrawSphere(pos, 8, 16, 16, Color(255, 0, 0, 180))
+            if i > 1 then
+                render.DrawLine(points[i-1], pos, Color(255, 0, 0), true)
+            end
+        end
+
+        -- Draw preview line to cursor
+        if #points < 4 then
+            local tr = ply:GetEyeTrace()
+            if tr.Hit then
+                local last = points[#points]
+                if last then
+                    render.DrawLine(last, tr.HitPos, Color(0, 255, 0), true)
+                    render.DrawSphere(tr.HitPos, 6, 12, 12, Color(0, 0, 0, 120))
+                end
+            end
+        end
+
+        -- Close the polygon if we have 4 points
+        if #points == 4 then
+            render.DrawLine(points[4], points[1], Color(255, 0, 0), true)
+        end
+    end
+    
+    -- Draw spawn points
+    local spawnPoints = GUNGAME.SpawnPoints or {}
+    if #spawnPoints > 0 then
+        render.SetColorMaterial()
+        for _, data in ipairs(spawnPoints) do
+            if data.pos then
+                local pos = data.pos
+                local ang = data.ang or Angle(0, 0, 0)
+                
+                -- Dibujar esfera azul en la posición
+                render.DrawSphere(pos, 10, 16, 16, Color(0, 150, 255, 200))
+                
+                -- Dibujar cruz blanca
+                local size = 10
+                render.DrawLine(pos + Vector(-size, 0, 0), pos + Vector(size, 0, 0), Color(255, 255, 255, 200), true)
+                render.DrawLine(pos + Vector(0, -size, 0), pos + Vector(0, size, 0), Color(255, 255, 255, 200), true)
+                render.DrawLine(pos + Vector(0, 0, -size), pos + Vector(0, 0, size), Color(255, 255, 255, 200), true)
+                
+                -- Dibujar flecha que indica la dirección
+                local forward = ang:Forward() * 20
+                render.DrawLine(pos, pos + forward, Color(255, 255, 0, 255), true)
+                
+                -- Dibujar un pequeño triángulo en la punta de la flecha
+                local right = ang:Right() * 5
+                render.DrawLine(pos + forward, pos + forward * 0.7 + right, Color(255, 255, 0, 255), true)
+                render.DrawLine(pos + forward, pos + forward * 0.7 - right, Color(255, 255, 0, 255), true)
+            end
+        end
+    end
+end)
