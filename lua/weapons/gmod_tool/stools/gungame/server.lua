@@ -290,17 +290,21 @@ net.Receive("gungame_start_event", function(_, ply)
     event_start_time = CurTime()
     has_winner = false
     
-    -- Iniciar el temporizador si hay un límite de tiempo
-    if GUNGAME.TimeLimit and GUNGAME.TimeLimit >= 0 then
+    -- Iniciar el temporizador solo si hay un límite de tiempo positivo
+    if GUNGAME.TimeLimit and GUNGAME.TimeLimit > 0 then
+        -- Eliminar cualquier temporizador existente
         if IsValid(time_limit_timer) then
             time_limit_timer:Remove()
+            time_limit_timer = nil
         end
         
+        -- Crear el temporizador con el límite de tiempo especificado
         time_limit_timer = timer.Create("GunGame_TimeLimit", GUNGAME.TimeLimit, 1, function()
             if gungame_event_active then
                 local topPlayer = nil
                 local topKills = -1
                 
+                -- Encontrar al jugador con más kills
                 for _, data in pairs(gungame_players) do
                     if IsValid(data.player) and data.kills > topKills then
                         topKills = data.kills
@@ -313,22 +317,39 @@ net.Receive("gungame_start_event", function(_, ply)
                     HandlePlayerWin(topPlayer)
                 end
                 
-                -- Notificar solo a los jugadores en el evento
+                -- Notificar a los jugadores en el evento
                 for _, data in pairs(gungame_players) do
                     if IsValid(data.player) then
                         data.player:ChatPrint("[GunGame] ¡Se ha alcanzado el límite de tiempo!")
                     end
                 end
 
+                -- Detener el evento
                 GUNGAME.StopEvent()
             end
         end)
         
         -- Notificar a los jugadores en el evento sobre el límite de tiempo
         local minutes = math.floor(GUNGAME.TimeLimit / 60)
+        local seconds = math.Round(GUNGAME.TimeLimit % 60)
+        local timeMessage
+        
+        if minutes > 0 then
+            timeMessage = string.format("%d minutos y %d segundos", minutes, seconds)
+        else
+            timeMessage = string.format("%d segundos", seconds)
+        end
+        
         for _, data in pairs(gungame_players) do
             if IsValid(data.player) then
-                data.player:ChatPrint(string.format("[GunGame] El evento tiene un límite de tiempo de %d minutos.", minutes))
+                data.player:ChatPrint(string.format("[GunGame] El evento tiene un límite de tiempo de %s.", timeMessage))
+            end
+        end
+    else
+        -- No hay límite de tiempo, notificar a los jugadores
+        for _, data in pairs(gungame_players) do
+            if IsValid(data.player) then
+                data.player:ChatPrint("[GunGame] El evento no tiene límite de tiempo.")
             end
         end
     end
