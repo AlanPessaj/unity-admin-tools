@@ -448,7 +448,11 @@ net.Receive("gungame_start_event", function(_, ply)
         local timeMessage
         
         if minutes > 0 then
-            timeMessage = string.format("%d minutos y %d segundos", minutes, seconds)
+            if seconds == 0 then
+                timeMessage = string.format("%d minutos", minutes)
+            else
+                timeMessage = string.format("%d minutos y %d segundos", minutes, seconds)
+            end
         else
             timeMessage = string.format("%d segundos", seconds)
         end
@@ -458,15 +462,7 @@ net.Receive("gungame_start_event", function(_, ply)
                 data.player:ChatPrint(string.format("[GunGame] El evento tiene un límite de tiempo de %s.", timeMessage))
             end
         end
-    else
-        -- No hay límite de tiempo, notificar a los jugadores
-        for _, data in pairs(gungame_players) do
-            if IsValid(data.player) then
-                data.player:ChatPrint("[GunGame] El evento no tiene límite de tiempo.")
-            end
-        end
     end
-    
     DebugMessage("Event started with " .. table.Count(gungame_players) .. " players")
     for steamid64, data in pairs(gungame_players) do
         local msg = "Player added: " .. data.player:Nick() .. " (SteamID64: " .. steamid64 .. ")"
