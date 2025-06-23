@@ -56,6 +56,7 @@ net.Receive("gungame_area_update_points", function()
     if IsValid(GUNGAME.AreaPanel) then
         GUNGAME.AreaPanel:InvalidateLayout(true)
     end
+    hook.Run("GunGame_AreaUpdated")
 end)
 
 net.Receive("gungame_update_spawnpoints", function()
@@ -124,6 +125,7 @@ net.Receive("gungame_weapon_validated", function()
         UpdateWeaponList()
         notification.AddLegacy("Added weapon: " .. weaponID, NOTIFY_GENERIC, 2)
         SyncWeaponsWithServer()
+        hook.Run("GunGame_WeaponsUpdated")
     else
         notification.AddLegacy("Invalid weapon: " .. weaponID, NOTIFY_ERROR, 2)
     end
@@ -131,6 +133,7 @@ end)
 
 net.Receive("gungame_clear_weapons", function()
     ClearWeaponList()
+    hook.Run("GunGame_WeaponsUpdated")
 end)
 
 -- Tool panel creation
@@ -195,6 +198,8 @@ function TOOL.BuildCPanel(panel)
     btnDelete.DoClick = function()
         net.Start("gungame_area_clear")
         net.SendToServer()
+        GUNGAME.AreaPoints = {}
+        hook.Run("GunGame_AreaUpdated")
     end
 
     -- Spawn Points Section
@@ -347,11 +352,30 @@ function TOOL.BuildCPanel(panel)
     btnStart:SetFont("DermaDefaultBold")
     btnStart:SetWide(panel:GetWide() - 16)
 
+    -- Update start button state based on conditions
+    local function UpdateStartButtonState()
+        local hasArea = #GUNGAME.AreaPoints > 0
+        local hasWeapons = GUNGAME.Weapons and #GUNGAME.Weapons > 0
+        
+        if not GUNGAME.EventActive then
+            btnStart:SetEnabled(hasArea and hasWeapons)
+            if not hasArea then
+                btnStart:SetTooltip("You need to define an area first")
+            elseif not hasWeapons then
+                btnStart:SetTooltip("You need to add at least one weapon")
+            else
+                btnStart:SetTooltip("Start the event")
+            end
+        end
+    end
+    
     -- Button state management
     GUNGAME.SetButtonState = function(active)
         GUNGAME.EventActive = active
         if active then
             btnStart:SetText("Stop event")
+            btnStart:SetEnabled(true)
+            btnStart:SetTooltip("Stop the event")
             btnSelect:SetEnabled(false)
             btnDelete:SetEnabled(false)
             btnAddSpawn:SetEnabled(false)
@@ -362,12 +386,23 @@ function TOOL.BuildCPanel(panel)
             btnDelete:SetEnabled(true)
             btnAddSpawn:SetEnabled(true)
             btnClearSpawns:SetEnabled(true)
+            UpdateStartButtonState()
         end
     end
+    
+    -- Update button state when weapons or area changes
+    hook.Add("GunGame_WeaponsUpdated", "UpdateStartButton", UpdateStartButtonState)
+    hook.Add("GunGame_AreaUpdated", "UpdateStartButton", UpdateStartButtonState)
 
     -- Start/stop event button handler
     btnStart.DoClick = function()
         if not GUNGAME.EventActive then
+            -- Double check conditions in case the button was somehow clicked while disabled
+            if #GUNGAME.AreaPoints == 0 or not GUNGAME.Weapons or #GUNGAME.Weapons == 0 then
+                notification.AddLegacy("Cannot start event: Missing area or weapons", NOTIFY_ERROR, 3)
+                return
+            end
+            
             Derma_Query(
                 "Are you sure you want to start the event?",
                 "Confirm event start",
