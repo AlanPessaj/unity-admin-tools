@@ -319,7 +319,7 @@ net.Receive("gungame_start_event", function(_, ply)
         -- Crear una tabla temporal para ordenar a los jugadores por nivel
         local playersToSort = {}
         for steamid64, data in pairs(gungame_players) do
-            if IsValid(data.player) and data.player:Alive() then
+            if IsValid(data.player) then
                 table.insert(playersToSort, {
                     name = data.player:Nick(),
                     level = data.level or 1
