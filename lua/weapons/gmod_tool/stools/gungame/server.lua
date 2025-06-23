@@ -320,10 +320,11 @@ hook.Add("PlayerSpawn", "gungame_respawn_in_area", function(ply)
     local playerData = gungame_players[steamid64]
     if not playerData then return end
     
-    -- Usar el spawn point guardado si existe
-    if playerData.spawnPoint then
-        ply:SetPos(playerData.spawnPoint.pos)
-        ply:SetEyeAngles(playerData.spawnPoint.ang or Angle(0, 0, 0))
+    -- Usar GetSpawnPoint para encontrar el mejor lugar para aparecer
+    local spawnPoint = GUNGAME.GetSpawnPoint(ply)
+    if spawnPoint then
+        ply:SetPos(spawnPoint.pos)
+        ply:SetEyeAngles(spawnPoint.ang or Angle(0, 0, 0))
     else
         HandlePlayerRespawn(ply, true)
     end
@@ -340,10 +341,11 @@ hook.Add("PlayerSpawn", "gungame_respawn_after_death", function(ply)
     
     timer.Simple(0.1, function()
         if IsValid(ply) and gungame_event_active then
-            -- Usar el spawn point guardado si existe
-            if playerData.spawnPoint then
-                ply:SetPos(playerData.spawnPoint.pos)
-                ply:SetEyeAngles(playerData.spawnPoint.ang or Angle(0, 0, 0))
+            -- Usar GetSpawnPoint para encontrar el mejor lugar para aparecer
+            local spawnPoint = GUNGAME.GetSpawnPoint(ply)
+            if spawnPoint then
+                ply:SetPos(spawnPoint.pos)
+                ply:SetEyeAngles(spawnPoint.ang or Angle(0, 0, 0))
             else
                 HandlePlayerRespawn(ply, false)
             end
@@ -512,57 +514,37 @@ net.Receive("gungame_clear_spawnpoints", function(_, ply)
     net.Broadcast()
 end)
 
--- Function to get the best spawn point (prioritize empty spawns)
-function GUNGAME.GetSpawnPoint()
+-- Function to get the best spawn point (prioritize spawns far from other players)
+function GUNGAME.GetSpawnPoint(ply)
     if #spawnPoints == 0 then return nil end
     
-    local safeSpawns = {}
-    local minSafeDistance = 300
+    local playerCount = table.Count(gungame_players or {})
+    if playerCount <= 1 then
+        return table.Random(spawnPoints)
+    end
+    
     local activePlayers = {}
-    for _, steamID in ipairs(gungame_players or {}) do
-        local ply = player.GetBySteamID64(steamID)
-        if IsValid(ply) and ply:Alive() then
-            table.insert(activePlayers, ply)
+    for steamid64, data in pairs(gungame_players) do
+        local p = data.player
+        if IsValid(p) and p:Alive() and (not IsValid(ply) or p ~= ply) then
+            table.insert(activePlayers, p)
         end
     end
     
-    -- Si no hay jugadores activos, devolver un spawn aleatorio
     if #activePlayers == 0 then
         return table.Random(spawnPoints)
     end
     
-    -- Buscar spawns seguros (sin jugadores cerca)
-    for _, spawn in ipairs(spawnPoints) do
-        local isSafe = true
-        local spawnPos = spawn.pos
-        
-        for _, ply in ipairs(activePlayers) do
-            if spawnPos:Distance(ply:GetPos()) < minSafeDistance then
-                isSafe = false
-                break
-            end
-        end
-        
-        if isSafe then
-            table.insert(safeSpawns, spawn)
-        end
-    end
-    
-    -- Si hay spawns seguros, elegir uno al azar
-    if #safeSpawns > 0 then
-        return table.Random(safeSpawns)
-    end
-    
-    -- Si no hay spawns seguros, encontrar el más alejado de otros jugadores
+    local shuffledSpawns = table.Copy(spawnPoints)
+    table.Shuffle(shuffledSpawns)
     local bestSpawn = nil
     local maxMinDistance = -1
     
-    for _, spawn in ipairs(spawnPoints) do
+    for _, spawn in ipairs(shuffledSpawns) do
         local minDistance = math.huge
-        local spawnPos = spawn.pos
         
-        for _, ply in ipairs(activePlayers) do
-            local dist = spawnPos:Distance(ply:GetPos())
+        for _, otherPlayer in ipairs(activePlayers) do
+            local dist = spawn.pos:Distance(otherPlayer:GetPos())
             if dist < minDistance then
                 minDistance = dist
             end
@@ -571,13 +553,16 @@ function GUNGAME.GetSpawnPoint()
         if minDistance > maxMinDistance then
             maxMinDistance = minDistance
             bestSpawn = spawn
+            
+            if maxMinDistance > 2000 then
+                return bestSpawn
+            end
         end
     end
     
     return bestSpawn or table.Random(spawnPoints)
 end
 
--- Function to get just a random spawn position (backwards compatibility)
 function GUNGAME.GetSpawnPosition()
     local spawn = GUNGAME.GetSpawnPoint()
     return spawn and spawn.pos or nil
