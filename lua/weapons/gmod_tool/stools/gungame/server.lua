@@ -27,6 +27,7 @@ local gungame_event_active = false
 local gungame_area_points = {}
 local gungame_respawn_time = {}
 local event_starter = nil
+local has_winner = false  -- Variable para rastrear si ya hay un ganador
 
 -- Función para enviar mensajes de depuración al iniciador del evento
 local function DebugMessage(msg)
@@ -54,6 +55,9 @@ function GUNGAME.StopEvent()
     gungame_area_points = {}
     gungame_respawn_time = {}
     spawnPoints = {}
+    has_winner = false
+    
+    -- Notificar a los clientes
     net.Start("gungame_event_stopped")
     net.Broadcast()
     net.Start("gungame_update_spawnpoints")
@@ -63,13 +67,21 @@ end
 
 -- Función para manejar la victoria de un jugador
 local function HandlePlayerWin(ply)
-    if not IsValid(ply) then return end
+    if not IsValid(ply) or has_winner then return end
+    
+    has_winner = true
     local winnerName = ply:Nick()
-    if IsValid(event_starter) then
-        event_starter:ChatPrint("[GunGame] ¡" .. winnerName .. " ha ganado el GunGame!")
+    
+    -- Notificar a todos los jugadores
+    for _, v in ipairs(player.GetAll()) do
+        v:ChatPrint("[GunGame] ¡" .. winnerName .. " ha ganado el GunGame!")
     end
+    
+    -- Reproducir sonido solo para el ganador
     net.Start("gungame_play_win_sound")
     net.Send(ply)
+    
+    -- Detener el evento después de 5 segundos
     timer.Simple(5, function()
         GUNGAME.StopEvent()
     end)
@@ -275,8 +287,6 @@ net.Receive("gungame_stop_event", function(_, ply)
     net.Start("gungame_update_spawnpoints")
         net.WriteTable({})
     net.Broadcast()
-    
-    print("[GunGame] Evento detenido y jugadores restaurados")
 end)
 
 -- Hooks
@@ -316,6 +326,8 @@ end
 hook.Add("PlayerSpawn", "gungame_respawn_in_area", function(ply)
     if not IsValid(ply) then return end
     if not gungame_event_active or not gungame_area_center then return end
+    
+    -- Verificar si el jugador está en el evento
     local steamid64 = ply:SteamID64()
     local playerData = gungame_players[steamid64]
     if not playerData then return end
@@ -327,6 +339,22 @@ hook.Add("PlayerSpawn", "gungame_respawn_in_area", function(ply)
         ply:SetEyeAngles(spawnPoint.ang or Angle(0, 0, 0))
     else
         HandlePlayerRespawn(ply, true)
+    end
+    
+    -- Dar armas si es necesario
+    if GUNGAME.Weapons and #GUNGAME.Weapons > 0 then
+        local weaponIndex = ((playerData.kills or 0) % #GUNGAME.Weapons) + 1
+        local weaponClass = GUNGAME.Weapons[weaponIndex]
+        
+        if weaponClass then
+            timer.Simple(0.1, function()
+                if IsValid(ply) then
+                    ply:StripWeapons()
+                    ply:Give(weaponClass)
+                    ply:SelectWeapon(weaponClass)
+                end
+            end)
+        end
     end
 end)
 
@@ -340,27 +368,27 @@ hook.Add("PlayerSpawn", "gungame_respawn_after_death", function(ply)
     if not playerData then return end
     
     timer.Simple(0.1, function()
-        if IsValid(ply) and gungame_event_active then
-            -- Usar GetSpawnPoint para encontrar el mejor lugar para aparecer
-            local spawnPoint = GUNGAME.GetSpawnPoint(ply)
-            if spawnPoint then
-                ply:SetPos(spawnPoint.pos)
-                ply:SetEyeAngles(spawnPoint.ang or Angle(0, 0, 0))
-            else
-                HandlePlayerRespawn(ply, false)
-            end
+        if not IsValid(ply) or not gungame_event_active then return end
             
-            -- Dar armas
-            if GUNGAME.Weapons and #GUNGAME.Weapons > 0 then
-                local weaponIndex = (playerData.kills % #GUNGAME.Weapons) + 1
-                local weaponClass = GUNGAME.Weapons[weaponIndex]
-                
-                if weaponClass then
-                    ply:StripWeapons()
-                    ply:Give(weaponClass)
-                    ply:SelectWeapon(weaponClass)
-                    print("[GunGame] Arma " .. weaponClass .. " dada a " .. ply:Nick() .. " (kills: " .. playerData.kills .. ")")
-                end
+        -- Usar GetSpawnPoint para encontrar el mejor lugar para aparecer
+        local spawnPoint = GUNGAME.GetSpawnPoint(ply)
+        if spawnPoint then
+            ply:SetPos(spawnPoint.pos)
+            ply:SetEyeAngles(spawnPoint.ang or Angle(0, 0, 0))
+        else
+            HandlePlayerRespawn(ply, false)
+        end
+        
+        -- Dar armas
+        if GUNGAME.Weapons and #GUNGAME.Weapons > 0 then
+            local weaponIndex = ((playerData.kills or 0) % #GUNGAME.Weapons) + 1
+            local weaponClass = GUNGAME.Weapons[weaponIndex]
+            
+            if weaponClass then
+                ply:StripWeapons()
+                ply:Give(weaponClass)
+                ply:SelectWeapon(weaponClass)
+
             end
         end
     end)
