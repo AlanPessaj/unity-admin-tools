@@ -25,6 +25,7 @@ util.AddNetworkString("gungame_update_event_status")
 -- Default player settings
 GUNGAME.PlayerHealth = 100
 GUNGAME.PlayerArmor = 100
+GUNGAME.PlayerSpeedMultiplier = 1.0
 GUNGAME.TimeLimit = -1
 
 GUNGAME.Config = {

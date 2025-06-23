@@ -60,12 +60,13 @@ net.Receive("gungame_options", function(len, ply)
     
     local health = net.ReadUInt(16)
     local armor = net.ReadUInt(16)
+    local speedMultiplier = net.ReadFloat()
     local timeLimit = net.ReadUInt(16)
     
     -- Store the options in the global table
     GUNGAME.PlayerHealth = health
     GUNGAME.PlayerArmor = armor
-    -- Set time limit (negative means no limit)
+    GUNGAME.PlayerSpeedMultiplier = math.max(0.1, math.min(10.0, speedMultiplier))
     if timeLimit < 0 then
         GUNGAME.TimeLimit = -1
     else
@@ -296,9 +297,9 @@ net.Receive("gungame_start_event", function(_, ply)
                 end
             end
             
-            p:SetWalkSpeed(250)
-            p:SetRunSpeed(500)
-            p:SetSlowWalkSpeed(150)
+            p:SetWalkSpeed(250 * GUNGAME.PlayerSpeedMultiplier)
+            p:SetRunSpeed(500 * GUNGAME.PlayerSpeedMultiplier)
+            p:SetSlowWalkSpeed(150 * GUNGAME.PlayerSpeedMultiplier)
         end
     end
 
@@ -334,7 +335,7 @@ net.Receive("gungame_start_event", function(_, ply)
         
         -- Enviar a los clientes
         net.Start("gungame_update_top_players")
-            net.WriteUInt(math.min(5, #playersToSort), 8) -- Enviar máximo 5 jugadores
+            net.WriteUInt(math.min(5, #playersToSort), 8)
             for i = 1, math.min(5, #playersToSort) do
                 local playerData = playersToSort[i]
                 if playerData then
@@ -567,6 +568,15 @@ hook.Add("PlayerSpawn", "gungame_respawn_in_area", function(ply)
     ply:SetHealth(GUNGAME.PlayerHealth)
     ply:SetArmor(GUNGAME.PlayerArmor)
     
+    -- Aplicar multiplicador de velocidad
+    local baseWalkSpeed = 250
+    local baseRunSpeed = 500
+    local baseSlowWalkSpeed = 150
+    
+    ply:SetWalkSpeed(baseWalkSpeed * GUNGAME.PlayerSpeedMultiplier)
+    ply:SetRunSpeed(baseRunSpeed * GUNGAME.PlayerSpeedMultiplier)
+    ply:SetSlowWalkSpeed(baseSlowWalkSpeed * GUNGAME.PlayerSpeedMultiplier)
+    
     -- Dar armas si es necesario
     if GUNGAME.Weapons and #GUNGAME.Weapons > 0 then
         local weaponIndex = math.min(playerData.level or 1, #GUNGAME.Weapons)
@@ -594,10 +604,14 @@ hook.Add("PlayerSpawn", "gungame_respawn_after_death", function(ply)
             if IsValid(ply) then
                 ply:SetHealth(GUNGAME.PlayerHealth or 100)
                 ply:SetArmor(GUNGAME.PlayerArmor or 0)
-                -- Resetear velocidad a valores normales
-                ply:SetWalkSpeed(250)
-                ply:SetRunSpeed(500)
-                ply:SetSlowWalkSpeed(150)
+                -- Aplicar multiplicador de velocidad
+                local baseWalkSpeed = 250
+                local baseRunSpeed = 500
+                local baseSlowWalkSpeed = 150
+                
+                ply:SetWalkSpeed(baseWalkSpeed * GUNGAME.PlayerSpeedMultiplier)
+                ply:SetRunSpeed(baseRunSpeed * GUNGAME.PlayerSpeedMultiplier)
+                ply:SetSlowWalkSpeed(baseSlowWalkSpeed * GUNGAME.PlayerSpeedMultiplier)
             end
         end)
     end
