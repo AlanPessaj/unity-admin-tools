@@ -111,7 +111,6 @@ local function ClearWeaponList()
     if IsValid(weaponListPanel) then
         weaponListPanel:Clear()
     end
-    -- Sincronizar la lista vacía con el servidor
     SyncWeaponsWithServer()
 end
 
@@ -124,7 +123,6 @@ net.Receive("gungame_weapon_validated", function()
         table.insert(GUNGAME.Weapons, weaponID)
         UpdateWeaponList()
         notification.AddLegacy("Added weapon: " .. weaponID, NOTIFY_GENERIC, 2)
-        -- Sincronizar la lista actualizada con el servidor
         SyncWeaponsWithServer()
     else
         notification.AddLegacy("Invalid weapon: " .. weaponID, NOTIFY_ERROR, 2)
@@ -391,6 +389,7 @@ function TOOL.BuildCPanel(panel)
                     net.SendToServer()
                     net.Start("gungame_area_clear")
                     net.SendToServer()
+                    ClearWeaponList()
                     GUNGAME.SetButtonState(false)
                 end,
                 "No"
