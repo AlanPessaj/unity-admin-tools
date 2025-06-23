@@ -116,7 +116,7 @@ function GUNGAME.UpdateTopPlayersPanel()
     -- Crear el panel contenedor
     local topPanel = vgui.Create("DPanel", GUNGAME.EventPanel)
     local playerCount = math.min(5, #GUNGAME.TopPlayers)
-    topPanel:SetSize(180, 10 + (playerCount * 20))  -- Reducido el espacio adicional
+    topPanel:SetSize(180, 10 + (playerCount * 20))
     topPanel:SetPos(10, posY)
     topPanel.Paint = function(self, w, h)
         draw.RoundedBox(4, 0, 0, w, h, Color(0, 0, 0, 180))
@@ -225,13 +225,10 @@ local function UpdateEventPanel(active, eventStarter, timeLimit, startTime)
             GUNGAME.UpdateTopPlayersPanel()
         end
     elseif IsValid(GUNGAME.EventPanel) and not active then
-        -- Animación de salida
-        GUNGAME.EventPanel:AlphaTo(0, 0.5, 0, function()
-            if IsValid(GUNGAME.EventPanel) then
-                GUNGAME.EventPanel:Remove()
-                GUNGAME.EventPanel = nil
-            end
-        end)
+        if IsValid(GUNGAME.EventPanel.TopPlayersPanel) then
+            GUNGAME.EventPanel.TopPlayersPanel:Remove()
+            GUNGAME.EventPanel.TopPlayersPanel = nil
+        end
     end
     
     -- Actualizar estado del evento
@@ -260,7 +257,16 @@ end)
 
 -- Hook para dibujar el tiempo restante
 hook.Add("HUDPaint", "GunGame_EventHUD", function()
-    if not GUNGAME.EventActive or not IsValid(GUNGAME.EventPanel) then return end
+    if not GUNGAME.EventActive then
+        -- Asegurarse de que el panel se elimine si por alguna razón sigue existiendo
+        if IsValid(GUNGAME.EventPanel) then
+            GUNGAME.EventPanel:Remove()
+            GUNGAME.EventPanel = nil
+        end
+        return 
+    end
+    
+    if not IsValid(GUNGAME.EventPanel) then return end
     
     -- Actualizar tiempo restante
     if GUNGAME.EventTimeLeft > 0 then
