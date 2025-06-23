@@ -28,7 +28,9 @@ local gungame_event_active = false
 local gungame_area_points = {}
 local gungame_respawn_time = {}
 local event_starter = nil
-local has_winner = false  -- Variable para rastrear si ya hay un ganador
+local has_winner = false
+local event_start_time = 0
+local time_limit_timer = nil
 
 -- Función para enviar mensajes de depuración al iniciador del evento
 local function DebugMessage(msg)
@@ -272,6 +274,52 @@ net.Receive("gungame_start_event", function(_, ply)
     end
 
     gungame_event_active = true
+    event_start_time = CurTime()
+    has_winner = false
+    
+    -- Iniciar el temporizador si hay un límite de tiempo
+    if GUNGAME.TimeLimit and GUNGAME.TimeLimit >= 0 then
+        if IsValid(time_limit_timer) then
+            time_limit_timer:Remove()
+        end
+        
+        time_limit_timer = timer.Create("GunGame_TimeLimit", GUNGAME.TimeLimit, 1, function()
+            if gungame_event_active then
+                -- Buscar al jugador con más kills
+                local topPlayer = nil
+                local topKills = -1
+                
+                for _, data in pairs(gungame_players) do
+                    if IsValid(data.player) and data.kills > topKills then
+                        topKills = data.kills
+                        topPlayer = data.player
+                    end
+                end
+                
+                -- Si hay un ganador, manejarlo
+                if IsValid(topPlayer) then
+                    HandlePlayerWin(topPlayer)
+                end
+                
+                -- Notificar solo a los jugadores en el evento
+                for _, data in pairs(gungame_players) do
+                    if IsValid(data.player) then
+                        data.player:ChatPrint("[GunGame] ¡Se ha alcanzado el límite de tiempo!")
+                    end
+                end
+
+                GUNGAME.StopEvent()
+            end
+        end)
+        
+        -- Notificar a los jugadores en el evento sobre el límite de tiempo
+        local minutes = math.floor(GUNGAME.TimeLimit / 60)
+        for _, data in pairs(gungame_players) do
+            if IsValid(data.player) then
+                data.player:ChatPrint(string.format("[GunGame] El evento tiene un límite de tiempo de %d minutos.", minutes))
+            end
+        end
+    end
     
     DebugMessage("Event started with " .. table.Count(gungame_players) .. " players")
     for steamid64, data in pairs(gungame_players) do
@@ -302,12 +350,19 @@ net.Receive("gungame_stop_event", function(_, ply)
         end
     end
     
+    -- Detener el temporizador si existe
+    if IsValid(time_limit_timer) then
+        time_limit_timer:Remove()
+        time_limit_timer = nil
+    end
+    
     gungame_players = {}
     gungame_area_center = nil
     gungame_event_active = false
     gungame_area_points = {}
     gungame_respawn_time = {}
     spawnPoints = {}
+    event_start_time = 0
     net.Start("gungame_event_stopped")
     net.Broadcast()
     net.Start("gungame_update_spawnpoints")
