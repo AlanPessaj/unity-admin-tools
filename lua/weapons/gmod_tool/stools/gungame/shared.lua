@@ -1,5 +1,3 @@
--- Shared configuration and utility functions for GunGame
-
 GUNGAME = GUNGAME or {}
 GUNGAME.Weapons = GUNGAME.Weapons or {}
 

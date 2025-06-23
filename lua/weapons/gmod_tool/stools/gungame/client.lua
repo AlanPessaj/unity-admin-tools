@@ -7,7 +7,7 @@ GUNGAME.AreaPanel = nil
 GUNGAME.SpawnPoints = {}
 GUNGAME.SpawnPanel = nil
 GUNGAME.Weapons = {}
-local weaponListPanel -- Panel que contendrá la lista de armas
+local weaponListPanel
 
 -- Language strings
 language.Add("tool.gungame.name", "[CGO] GunGame Tool")
@@ -43,9 +43,7 @@ end)
 net.Receive("gungame_debug_message", function()
     local message = net.ReadString()
     if message then
-        -- Mostrar en el chat del jugador
         LocalPlayer():ChatPrint("[GunGame Debug] " .. message)
-        -- También mostrar en consola
         MsgC(Color(0, 255, 255), "[GunGame Debug] ", Color(255, 255, 255), message, "\n")
     end
 end)
@@ -67,10 +65,7 @@ net.Receive("gungame_update_spawnpoints", function()
 end)
 
 net.Receive("gungame_event_stopped", function()
-    -- Limpiar los spawn points locales
     GUNGAME.SpawnPoints = {}
-    
-    -- Actualizar el estado de los botones
     if GUNGAME.SetButtonState then
         GUNGAME.SetButtonState(false)
     end
@@ -79,11 +74,8 @@ end)
 -- Función para actualizar la lista de armas en la UI
 local function UpdateWeaponList()
     if not IsValid(weaponListPanel) then return end
-    
-    -- Limpiar la lista actual
     weaponListPanel:Clear()
     
-    -- Agregar cada arma como una etiqueta
     for _, weaponID in ipairs(GUNGAME.Weapons or {}) do
         local label = weaponListPanel:Add("DLabel")
         label:SetText(weaponID)
@@ -95,11 +87,8 @@ end
 
 -- Función para sincronizar la lista de armas con el servidor
 local function SyncWeaponsWithServer()
-    -- Enviar la lista de armas al servidor
     net.Start("gungame_sync_weapons")
-        net.WriteUInt(#GUNGAME.Weapons, 8) -- Enviar la cantidad de armas (hasta 255)
-        
-        -- Enviar cada arma
+        net.WriteUInt(#GUNGAME.Weapons, 8)
         for _, weaponID in ipairs(GUNGAME.Weapons) do
             net.WriteString(weaponID or "")
         end
@@ -115,7 +104,6 @@ local function ClearWeaponList()
     SyncWeaponsWithServer()
 end
 
--- Manejadores de red para las armas
 net.Receive("gungame_weapon_validated", function()
     local isValid = net.ReadBool()
     local weaponID = net.ReadString()
@@ -245,8 +233,6 @@ function TOOL.BuildCPanel(panel)
             net.WriteVector(pos)
             net.WriteAngle(ang)
         net.SendToServer()
-        
-        -- Notificación de confirmación
         notification.AddLegacy("Spawn point agregado!", NOTIFY_GENERIC, 2)
         surface.PlaySound("buttons/button14.wav")
     end
@@ -305,18 +291,13 @@ function TOOL.BuildCPanel(panel)
     addButton.DoClick = function()
         local weaponID = string.Trim(weaponEntry:GetValue())
         if weaponID == "" then return end
-        
-        -- Verificar si ya existe
         if table.HasValue(GUNGAME.Weapons, weaponID) then
             notification.AddLegacy("Weapon already in list!", NOTIFY_ERROR, 2)
             return
         end
-        
-        -- Validar con el servidor
         net.Start("gungame_validate_weapon")
             net.WriteString(weaponID)
         net.SendToServer()
-        
         weaponEntry:SetValue("")
     end
     
@@ -397,7 +378,6 @@ function TOOL.BuildCPanel(panel)
     -- Start/stop event button handler
     btnStart.DoClick = function()
         if not GUNGAME.EventActive then
-            -- Double check conditions in case the button was somehow clicked while disabled
             if #GUNGAME.AreaPoints == 0 or not GUNGAME.Weapons or #GUNGAME.Weapons == 0 then
                 notification.AddLegacy("Cannot start event: Missing area or weapons", NOTIFY_ERROR, 3)
                 return
@@ -478,7 +458,7 @@ hook.Add("PostDrawTranslucentRenderables", "gungame_area_draw_points", function(
             end
         end
 
-        -- Close the polygon if we have 4 points
+        -- Close the polygon if there are 4 points
         if #points == 4 then
             render.DrawLine(points[4], points[1], Color(255, 0, 0), true)
         end
@@ -494,21 +474,13 @@ hook.Add("PostDrawTranslucentRenderables", "gungame_area_draw_points", function(
             if data.pos then
                 local pos = data.pos
                 local ang = data.ang or Angle(0, 0, 0)
-                
-                -- Dibujar esfera azul en la posición
                 render.DrawSphere(pos, 10, 16, 16, Color(0, 150, 255, 200))
-                
-                -- Dibujar cruz blanca
                 local size = 10
                 render.DrawLine(pos + Vector(-size, 0, 0), pos + Vector(size, 0, 0), Color(255, 255, 255, 200), true)
                 render.DrawLine(pos + Vector(0, -size, 0), pos + Vector(0, size, 0), Color(255, 255, 255, 200), true)
                 render.DrawLine(pos + Vector(0, 0, -size), pos + Vector(0, 0, size), Color(255, 255, 255, 200), true)
-                
-                -- Dibujar flecha que indica la dirección
                 local forward = ang:Forward() * 20
                 render.DrawLine(pos, pos + forward, Color(255, 255, 0, 255), true)
-                
-                -- Dibujar un pequeño triángulo en la punta de la flecha
                 local right = ang:Right() * 5
                 render.DrawLine(pos + forward, pos + forward * 0.7 + right, Color(255, 255, 0, 255), true)
                 render.DrawLine(pos + forward, pos + forward * 0.7 - right, Color(255, 255, 0, 255), true)

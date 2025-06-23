@@ -21,12 +21,12 @@ util.AddNetworkString("gungame_debug_message")
 local selecting = {}
 local points = {}
 local spawnPoints = {}
-local gungame_players = {} -- Ahora será una tabla con más información por jugador
+local gungame_players = {}
 local gungame_area_center = nil
 local gungame_event_active = false
 local gungame_area_points = {}
 local gungame_respawn_time = {}
-local event_starter = nil -- Jugador que inició el evento
+local event_starter = nil
 
 -- Función para enviar mensajes de depuración al iniciador del evento
 local function DebugMessage(msg)
@@ -35,13 +35,11 @@ local function DebugMessage(msg)
             net.WriteString(msg)
         net.Send(event_starter)
     end
-    -- También lo mostramos en el servidor
     print("[GunGame Debug] " .. msg)
 end
 
 -- Función para detener el evento de GunGame
 function GUNGAME.StopEvent()
-    -- Restaurar a los jugadores antes de limpiar
     for steamid64, data in pairs(gungame_players) do
         if IsValid(data.player) then
             data.player:StripWeapons()
@@ -56,12 +54,8 @@ function GUNGAME.StopEvent()
     gungame_area_points = {}
     gungame_respawn_time = {}
     spawnPoints = {}
-    
-    -- Notificar a los clientes que el evento ha terminado
     net.Start("gungame_event_stopped")
     net.Broadcast()
-    
-    -- Actualizar a los clientes con la lista vacía de spawn points
     net.Start("gungame_update_spawnpoints")
         net.WriteTable({})
     net.Broadcast()
@@ -70,20 +64,12 @@ end
 -- Función para manejar la victoria de un jugador
 local function HandlePlayerWin(ply)
     if not IsValid(ply) then return end
-    
-    -- Anunciar al ganador
     local winnerName = ply:Nick()
-    
-    -- Mostrar mensaje solo al que inició el evento
     if IsValid(event_starter) then
         event_starter:ChatPrint("[GunGame] ¡" .. winnerName .. " ha ganado el GunGame!")
     end
-    
-    -- Reproducir sonido de victoria solo para el ganador
     net.Start("gungame_play_win_sound")
     net.Send(ply)
-    
-    -- Esperar un poco antes de detener el evento
     timer.Simple(5, function()
         GUNGAME.StopEvent()
     end)
@@ -99,23 +85,16 @@ local function UpdateAreaPointsForAll(plyPoints, sender)
     net.Start("gungame_area_update_points")
         net.WriteTable(plyPoints or {})
     if sender then
-        net.SendOmit(sender) -- Send to all except the sender (who already has the update)
+        net.SendOmit(sender)
     else
         net.Broadcast()
     end
 end
-
--- Net receivers
-
 -- Iniciar la selección del área
 net.Receive("gungame_area_start", function(_, ply)
     if not IsValid(ply) then return end
-    
-    -- Iniciar modo de selección para este jugador
     selecting[ply] = true
-    points[ply] = table.Copy(gungame_area_points) -- Initialize with current global points
-    
-    -- Enviar los puntos actuales al jugador que acaba de iniciar la selección
+    points[ply] = table.Copy(gungame_area_points)
     net.Start("gungame_area_update_points")
         net.WriteTable(gungame_area_points)
     net.Send(ply)
@@ -127,41 +106,27 @@ net.Receive("gungame_validate_weapon", function(len, ply)
     
     local weaponID = net.ReadString()
     local isValid = weapons.Get(weaponID) ~= nil
-    
     net.Start("gungame_weapon_validated")
         net.WriteBool(isValid)
         net.WriteString(weaponID)
     net.Send(ply)
 end)
 
--- Sincronizar lista de armas desde el cliente
 net.Receive("gungame_sync_weapons", function(_, ply)
     if not IsValid(ply) then return end
-    
-    -- Leer la cantidad de armas
-    local count = net.ReadUInt(8) -- Hasta 255 armas
+    local count = net.ReadUInt(8)
     local weaponsList = {}
-    
-    -- Leer cada arma
     for i = 1, count do
         local weaponID = net.ReadString()
         if weaponID and weaponID ~= "" then
             table.insert(weaponsList, weaponID)
         end
     end
-    
-    -- Actualizar la lista de armas
     GUNGAME.Weapons = weaponsList
 end)
-
--- Limpiar la lista de armas
 net.Receive("gungame_clear_weapons", function(len, ply)
     if not IsValid(ply) then return end
-    
-    -- Limpiar la lista local
     GUNGAME.Weapons = {}
-    
-    -- Notificar a todos los clientes
     net.Start("gungame_clear_weapons")
     net.Broadcast()
 end)
@@ -211,7 +176,7 @@ net.Receive("gungame_start_event", function(_, ply)
     gungame_area_points = area
     gungame_area_center = GUNGAME.CalculateCenter(area)
     gungame_players = {}
-    event_starter = ply -- Establecer al jugador que inició el evento
+    event_starter = ply
 
     -- Find players inside the area
     local playerCount = 0
@@ -259,7 +224,6 @@ net.Receive("gungame_start_event", function(_, ply)
 end)
 
 net.Receive("gungame_stop_event", function(_, ply)
-    -- Notificar a los jugadores del evento que ha terminado
     for steamid64, data in pairs(gungame_players) do
         if IsValid(data.player) then
             data.player:ChatPrint("[GunGame] ¡El evento ha sido detenido!")
@@ -279,15 +243,9 @@ net.Receive("gungame_stop_event", function(_, ply)
     gungame_event_active = false
     gungame_area_points = {}
     gungame_respawn_time = {}
-    
-    -- Limpiar los spawn points
     spawnPoints = {}
-
-    -- Notificar a los clientes que el evento ha terminado
     net.Start("gungame_event_stopped")
     net.Broadcast()
-    
-    -- Actualizar a los clientes con la lista vacía de spawn points
     net.Start("gungame_update_spawnpoints")
         net.WriteTable({})
     net.Broadcast()
@@ -303,15 +261,9 @@ local function HandlePlayerRespawn(ply, isImmediate)
     
     local steamid64 = ply:SteamID64()
     if not gungame_players[steamid64] then return end
-    
-    -- Guardar el tiempo de respawn
     gungame_respawn_time[steamid64] = CurTime()
-    
-    -- Obtener punto de spawn
     local spawnPos = gungame_area_center
     local spawnAng = Angle(0, math.random(0, 360), 0)
-    
-    -- Intentar obtener un punto de spawn personalizado
     local spawnData = GUNGAME.GetSpawnPoint()
     if spawnData and spawnData.pos then
         spawnPos = spawnData.pos
@@ -319,15 +271,11 @@ local function HandlePlayerRespawn(ply, isImmediate)
             spawnAng = spawnData.ang
         end
     end
-    
-    -- Aplicar posición y ángulo
     if IsValid(ply) and spawnPos then
-        -- Si es un respawn inmediato, forzar la posición
         if isImmediate then
             ply:SetPos(spawnPos)
             ply:SetEyeAngles(spawnAng)
         else
-            -- Si no es inmediato, usar un timer muy corto
             timer.Simple(0, function()
                 if IsValid(ply) and gungame_event_active then
                     ply:SetPos(spawnPos)
@@ -342,11 +290,8 @@ end
 hook.Add("PlayerSpawn", "gungame_respawn_in_area", function(ply)
     if not IsValid(ply) then return end
     if not gungame_event_active or not gungame_area_center then return end
-    
     local steamid64 = ply:SteamID64()
     if not gungame_players[steamid64] then return end
-    
-    -- Manejar el respawn de inmediato
     HandlePlayerRespawn(ply, true)
 end)
 
@@ -358,13 +303,9 @@ hook.Add("PlayerSpawn", "gungame_respawn_after_death", function(ply)
     local steamid64 = ply:SteamID64()
     local playerData = gungame_players[steamid64]
     if not playerData then return end
-    
-    -- Usar un pequeño retraso para el respawn después de morir
     timer.Simple(0.1, function()
         if IsValid(ply) and gungame_event_active then
             HandlePlayerRespawn(ply, false)
-            
-            -- Asegurarse de que el jugador tenga su arma
             if GUNGAME.Weapons and #GUNGAME.Weapons > 0 then
                 local weaponIndex = (playerData.kills % #GUNGAME.Weapons) + 1
                 local weaponClass = GUNGAME.Weapons[weaponIndex]
@@ -482,7 +423,6 @@ TOOL.RightClick = function() return false end
 
 TOOL.Deploy = function(self)
     local ply = self:GetOwner()
-    -- Send current area points to the player who deployed the tool
     net.Start("gungame_area_update_points")
         net.WriteTable(gungame_area_points)
     net.Send(ply)
@@ -491,8 +431,6 @@ end
 TOOL.Holster = function(self)
     local ply = self:GetOwner()
     selecting[ply] = false
-    -- Don't clear points when holstering, only clear when explicitly requested
-    -- No need to send any update here as we want to keep the points
 end
 
 -- Spawn points network handlers
