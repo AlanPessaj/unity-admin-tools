@@ -11,6 +11,7 @@ GUNGAME.EventPanel = nil
 GUNGAME.EventActive = false
 GUNGAME.EventTimeLeft = 0
 GUNGAME.EventStartTime = 0
+GUNGAME.TopPlayers = {} -- Almacena el top de jugadores
 local weaponListPanel
 
 -- Language strings
@@ -97,6 +98,83 @@ net.Receive("gungame_debug_message", function()
     end
 end)
 
+-- Función para actualizar el panel del top de jugadores
+function GUNGAME.UpdateTopPlayersPanel()
+    if not IsValid(GUNGAME.EventPanel) or not GUNGAME.TopPlayers then return end
+    
+    -- Eliminar el panel anterior si existe
+    if IsValid(GUNGAME.EventPanel.TopPlayersPanel) then
+        GUNGAME.EventPanel.TopPlayersPanel:Remove()
+    end
+    
+    -- Calcular la posición Y basada en si el temporizador está visible o no
+    local posY = 40
+    if IsValid(GUNGAME.EventPanel.TimeLeft) and GUNGAME.EventPanel.TimeLeft:IsVisible() then
+        posY = 70 
+    end
+    
+    -- Crear el panel contenedor
+    local topPanel = vgui.Create("DPanel", GUNGAME.EventPanel)
+    local playerCount = math.min(5, #GUNGAME.TopPlayers)
+    topPanel:SetSize(180, 10 + (playerCount * 20))  -- Reducido el espacio adicional
+    topPanel:SetPos(10, posY)
+    topPanel.Paint = function(self, w, h)
+        draw.RoundedBox(4, 0, 0, w, h, Color(0, 0, 0, 180))
+    end
+    
+    -- Lista de jugadores
+    for i, data in ipairs(GUNGAME.TopPlayers) do
+        if i > 5 then break end
+        
+        local yPos = 5 + ((i-1) * 20)
+        
+        -- Fondo de la fila
+        local rowBg = vgui.Create("DPanel", topPanel)
+        rowBg:SetSize(160, 18)
+        rowBg:SetPos(10, yPos)
+        rowBg.Paint = function(self, w, h)
+            draw.RoundedBox(0, 0, 0, w, h, i % 2 == 0 and Color(50, 50, 50, 120) or Color(70, 70, 70, 120))
+        end
+        
+        -- Posición
+        local posLabel = vgui.Create("DLabel", rowBg)
+        posLabel:SetText(tostring(i) .. ".")
+        posLabel:SetTextColor(Color(255, 255, 255))
+        posLabel:SetFont("DermaDefaultBold")
+        posLabel:SetSize(20, 18)
+        posLabel:SetPos(2, 0)
+        posLabel:SetContentAlignment(4)
+        
+        -- Nombre
+        local nameLabel = vgui.Create("DLabel", rowBg)
+        nameLabel:SetText(data.name or "")
+        nameLabel:SetTextColor(Color(255, 255, 255))
+        nameLabel:SetFont("DermaDefault")
+        nameLabel:SetSize(100, 18)
+        nameLabel:SetPos(25, 0)
+        nameLabel:SetContentAlignment(4)
+        
+        -- Nivel
+        local levelLabel = vgui.Create("DLabel", rowBg)
+        levelLabel:SetText(tostring(data.level-1 or 0))
+        levelLabel:SetTextColor(Color(100, 255, 100))
+        levelLabel:SetFont("DermaDefaultBold")
+        levelLabel:SetSize(40, 18)
+        levelLabel:SetPos(110, 0)
+        levelLabel:SetContentAlignment(6)
+    end
+    
+    GUNGAME.EventPanel.TopPlayersPanel = topPanel
+    
+    -- Ajustar tamaño del panel principal si es necesario
+    local baseHeight = 60 -- Altura base (título + margen)
+    if IsValid(GUNGAME.EventPanel.TimeLeft) and GUNGAME.EventPanel.TimeLeft:IsVisible() then
+        baseHeight = 70 -- Reducido de 90 a 70 para hacer el panel más compacto
+    end
+    local totalHeight = baseHeight + topPanel:GetTall() + 10
+    GUNGAME.EventPanel:SetSize(200, totalHeight)
+end
+
 -- Función para actualizar el panel de evento
 local function UpdateEventPanel(active, eventStarter, timeLimit, startTime)
     if not IsValid(GUNGAME.EventPanel) and active then
@@ -141,6 +219,11 @@ local function UpdateEventPanel(active, eventStarter, timeLimit, startTime)
         -- Animación de entrada
         GUNGAME.EventPanel:SetAlpha(0)
         GUNGAME.EventPanel:AlphaTo(255, 0.5, 0)
+        
+        -- Crear panel de top jugadores
+        if #GUNGAME.TopPlayers > 0 then
+            GUNGAME.UpdateTopPlayersPanel()
+        end
     elseif IsValid(GUNGAME.EventPanel) and not active then
         -- Animación de salida
         GUNGAME.EventPanel:AlphaTo(0, 0.5, 0, function()
@@ -271,6 +354,8 @@ local function ClearWeaponList()
     SyncWeaponsWithServer()
 end
 
+
+
 net.Receive("gungame_weapon_validated", function()
     local isValid = net.ReadBool()
     local weaponID = net.ReadString()
@@ -289,6 +374,25 @@ end)
 net.Receive("gungame_clear_weapons", function()
     ClearWeaponList()
     hook.Run("GunGame_WeaponsUpdated")
+end)
+
+-- Recibir actualización del top de jugadores
+net.Receive("gungame_update_top_players", function()
+    local count = net.ReadUInt(8)
+    GUNGAME.TopPlayers = {}
+    
+    for i = 1, count do
+        if net.ReadBool() then
+            local name = net.ReadString()
+            local level = net.ReadUInt(16)
+            GUNGAME.TopPlayers[i] = {name = name, level = level}
+        end
+    end
+    
+    -- Actualizar el panel si está activo
+    if IsValid(GUNGAME.EventPanel) and GUNGAME.EventActive then
+        GUNGAME.UpdateTopPlayersPanel()
+    end
 end)
 
 -- Tool panel creation

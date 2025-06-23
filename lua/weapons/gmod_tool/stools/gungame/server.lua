@@ -15,6 +15,7 @@ util.AddNetworkString("gungame_update_spawnpoints")
 util.AddNetworkString("gungame_sync_weapons")
 util.AddNetworkString("gungame_debug_message")
 util.AddNetworkString("gungame_options")
+util.AddNetworkString("gungame_update_top_players")
 
 -- Server state
 local selecting = {}
@@ -29,6 +30,7 @@ local event_starter = nil
 local has_winner = false
 local event_start_time = 0
 local time_limit_timer = nil
+local top_players_timer = nil
 
 -- Función para enviar mensajes de depuración al iniciador del evento
 local function DebugMessage(msg)
@@ -82,6 +84,12 @@ function GUNGAME.StopEvent()
             data.player:StripWeapons()
             data.player:KillSilent()
         end
+    end
+    
+    -- Detener el temporizador de actualización del top de jugadores
+    if IsValid(top_players_timer) then
+        top_players_timer:Remove()
+        top_players_timer = nil
     end
     
     -- Limpiar variables globales
@@ -294,8 +302,57 @@ net.Receive("gungame_start_event", function(_, ply)
         end
     end
 
+    -- Iniciar el evento
     gungame_event_active = true
+    event_starter = ply
     event_start_time = CurTime()
+    
+    -- Iniciar actualización periódica del top de jugadores
+    if IsValid(top_players_timer) then
+        top_players_timer:Remove()
+    end
+    
+    -- Función para actualizar el top de jugadores
+    local function UpdateTopPlayers()
+        if not gungame_event_active then return end
+        
+        -- Crear una tabla temporal para ordenar a los jugadores por nivel
+        local playersToSort = {}
+        for steamid64, data in pairs(gungame_players) do
+            if IsValid(data.player) and data.player:Alive() then
+                table.insert(playersToSort, {
+                    name = data.player:Nick(),
+                    level = data.level or 1
+                })
+            end
+        end
+        
+        -- Ordenar por nivel (de mayor a menor)
+        table.sort(playersToSort, function(a, b)
+            return a.level > b.level
+        end)
+        
+        -- Enviar a los clientes
+        net.Start("gungame_update_top_players")
+            net.WriteUInt(math.min(5, #playersToSort), 8) -- Enviar máximo 5 jugadores
+            for i = 1, math.min(5, #playersToSort) do
+                local playerData = playersToSort[i]
+                if playerData then
+                    net.WriteBool(true)
+                    net.WriteString(playerData.name or "")
+                    net.WriteUInt(playerData.level or 1, 16)
+                else
+                    net.WriteBool(false)
+                end
+            end
+        net.Broadcast()
+    end
+    
+    -- Actualizar cada 2 segundos
+    top_players_timer = timer.Create("GunGame_UpdateTopPlayers", 2, 0, UpdateTopPlayers)
+    
+    -- Primera actualización inmediata
+    UpdateTopPlayers()
     has_winner = false
     
     -- Notificar a todos los clientes que el evento ha comenzado
