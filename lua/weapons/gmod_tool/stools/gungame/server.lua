@@ -287,6 +287,10 @@ net.Receive("gungame_start_event", function(_, ply)
                     p:Give(firstWeapon)
                 end
             end
+            
+            p:SetWalkSpeed(250)
+            p:SetRunSpeed(500)
+            p:SetSlowWalkSpeed(150)
         end
     end
 
@@ -531,12 +535,16 @@ end)
 hook.Add("PlayerSpawn", "gungame_respawn_after_death", function(ply)
     if not IsValid(ply) then return end
     
-    -- Establecer vida y armadura al reaparecer después de morir
+    -- Establecer vida, armadura y velocidad al reaparecer después de morir
     if gungame_event_active and gungame_players[ply:SteamID64()] then
         timer.Simple(0.1, function()
             if IsValid(ply) then
                 ply:SetHealth(GUNGAME.PlayerHealth or 100)
                 ply:SetArmor(GUNGAME.PlayerArmor or 0)
+                -- Resetear velocidad a valores normales
+                ply:SetWalkSpeed(250)
+                ply:SetRunSpeed(500)
+                ply:SetSlowWalkSpeed(150)
             end
         end)
     end

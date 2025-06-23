@@ -596,6 +596,56 @@ function TOOL.BuildCPanel(panel)
     
     -- Store the time entry for later use
     GUNGAME.TimeEntry = timeEntry
+    
+    -- Speed input field
+    local speedContainer = vgui.Create("DPanel", panel)
+    speedContainer:Dock(TOP)
+    speedContainer:DockMargin(0, 0, 0, 8)
+    speedContainer:SetTall(28)
+    speedContainer:SetPaintBackground(false)
+    
+    local speedLabel = vgui.Create("DLabel", speedContainer)
+    speedLabel:Dock(LEFT)
+    speedLabel:SetWide(100)
+    speedLabel:SetText("Speed:")
+    speedLabel:SetTextColor(Color(40, 40, 40))
+    
+    local speedEntry = vgui.Create("DTextEntry", speedContainer)
+    speedEntry:Dock(LEFT)
+    speedEntry:SetWide(100)
+    speedEntry:SetValue("1")
+    speedEntry:SetTooltip("Speed multiplier (1 = normal speed)")
+    speedEntry:SetNumeric(true)
+    
+    -- Validate that only numbers and decimal points can be entered
+    speedEntry.OnChange = function(self)
+        local text = self:GetValue()
+        local newText = ""
+        local hasDecimal = false
+        
+        for i = 1, #text do
+            local c = text:sub(i, i)
+            if c == "." and not hasDecimal then
+                newText = newText .. c
+                hasDecimal = true
+            elseif tonumber(c) ~= nil then
+                newText = newText .. c
+            end
+        end
+        
+        -- Ensure minimum value of 0.1
+        if tonumber(newText) and tonumber(newText) <= 0 then
+            newText = "0.1"
+        end
+        
+        if newText ~= text then
+            self:SetText(newText)
+            self:SetCaretPos(#newText)
+        end
+    end
+    
+    -- Store the speed entry for later use
+    GUNGAME.SpeedEntry = speedEntry
 
     -- Event control button
     GUNGAME.EventActive = false
