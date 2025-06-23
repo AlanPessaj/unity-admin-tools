@@ -316,12 +316,44 @@ function TOOL.BuildCPanel(panel)
     -- Weapon list panel
     weaponListPanel = vgui.Create("DScrollPanel", panel)
     weaponListPanel:Dock(TOP)
-    weaponListPanel:DockMargin(0, 0, 0, 16)
+    weaponListPanel:DockMargin(0, 0, 0, 8)
     weaponListPanel:SetTall(100)
     weaponListPanel:SetPaintBackground(true)
     weaponListPanel.Paint = function(self, w, h)
         draw.RoundedBox(4, 0, 0, w, h, Color(240, 240, 240))
     end
+    
+    -- Options Label
+    local optionsLabel = vgui.Create("DLabel", panel)
+    optionsLabel:Dock(TOP)
+    optionsLabel:DockMargin(0, 8, 0, 8)
+    optionsLabel:SetText("Options")
+    optionsLabel:SetFont("DermaDefaultBold")
+    optionsLabel:SetTextColor(Color(40, 40, 40))
+    optionsLabel:SizeToContents()
+    
+    -- Health input field
+    local healthContainer = vgui.Create("DPanel", panel)
+    healthContainer:Dock(TOP)
+    healthContainer:DockMargin(0, 0, 0, 8)
+    healthContainer:SetTall(28)
+    healthContainer:SetPaintBackground(false)
+    
+    local healthLabel = vgui.Create("DLabel", healthContainer)
+    healthLabel:Dock(LEFT)
+    healthLabel:SetWide(60)
+    healthLabel:SetText("Health:")
+    healthLabel:SetTextColor(Color(40, 40, 40))
+    
+    local healthEntry = vgui.Create("DTextEntry", healthContainer)
+    healthEntry:Dock(FILL)
+    healthEntry:SetNumeric(true)
+    healthEntry:SetValue("100")
+    healthEntry:SetPlaceholderText("Enter health value")
+    healthEntry:SetUpdateOnType(true)
+    
+    -- Store the health entry for later use
+    GUNGAME.HealthEntry = healthEntry
 
     -- Event control button
     GUNGAME.EventActive = false
