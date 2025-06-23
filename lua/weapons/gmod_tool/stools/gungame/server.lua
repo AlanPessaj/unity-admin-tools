@@ -281,6 +281,7 @@ net.Receive("gungame_start_event", function(_, ply)
             gungame_players[steamid64] = {
                 player = p,
                 kills = 0,
+                level = 1,
                 steamid64 = steamid64,
                 weaponIndex = 0,
                 spawnPoint = spawnPoint
@@ -322,29 +323,62 @@ net.Receive("gungame_start_event", function(_, ply)
         -- Crear el temporizador con el límite de tiempo especificado
         time_limit_timer = timer.Create("GunGame_TimeLimit", GUNGAME.TimeLimit, 1, function()
             if gungame_event_active and not has_winner then
-                local topPlayer = nil
-                local topKills = -1
+                local topPlayers = {}
+                local topLevel = -1
                 
-                -- Encontrar al jugador con más kills
+                -- Encontrar el nivel más alto y todos los jugadores que lo tengan
                 for _, data in pairs(gungame_players) do
-                    if IsValid(data.player) and data.kills > topKills then
-                        topKills = data.kills
-                        topPlayer = data.player
+                    if IsValid(data.player) and data.level ~= nil then
+                        if data.level > topLevel then
+                            topLevel = data.level
+                            topPlayers = {data.player}
+                        elseif data.level == topLevel then
+                            table.insert(topPlayers, data.player)
+                        end
                     end
                 end
+                
+                -- Elegir un jugador al azar de los que tienen el nivel más alto
+                local topPlayer = nil
+                if #topPlayers > 0 then
+                    topPlayer = table.Random(topPlayers)
+                end
+                
+                -- Verificar si hay empate (más de un jugador en el top)
+                local isDraw = #topPlayers > 1
                 
                 -- Si hay un ganador, manejarlo
                 if IsValid(topPlayer) then
+                    if isDraw then
+                        -- Si hay empate, notificar a todos los jugadores
+                        local playerNames = {}
+                        for _, player in ipairs(topPlayers) do
+                            if IsValid(player) then
+                                table.insert(playerNames, player:Nick())
+                            end
+                        end
+                        
+                        local drawMessage = "[GunGame] ¡Hubo un empate entre " .. table.concat(playerNames, ", ") .. "! Se eligirá un ganador al azar"
+                        
+                        for _, data in pairs(gungame_players) do
+                            if IsValid(data.player) then
+                                data.player:ChatPrint("[GunGame] ¡Se ha alcanzado el límite de tiempo!")
+                                data.player:ChatPrint(drawMessage)
+                            end
+                        end
+                    else
+                        -- Si no hay empate, solo notificar el límite de tiempo
+                        for _, data in pairs(gungame_players) do
+                            if IsValid(data.player) then
+                                data.player:ChatPrint("[GunGame] ¡Se ha alcanzado el límite de tiempo!")
+                            end
+                        end
+                    end
+                    
+                    -- Manejar al ganador
                     HandlePlayerWin(topPlayer)
                 end
                 
-                -- Notificar a los jugadores en el evento
-                for _, data in pairs(gungame_players) do
-                    if IsValid(data.player) then
-                        data.player:ChatPrint("[GunGame] ¡Se ha alcanzado el límite de tiempo!")
-                    end
-                end
-
                 -- Detener el evento
                 GUNGAME.StopEvent()
             end
@@ -552,17 +586,11 @@ hook.Add("PlayerDeath", "gungame_player_death", function(victim, inflictor, atta
         
         -- Verificar si ambos están en el evento
         if gungame_players[attacker_steamid64] and gungame_players[victim_steamid64] then
-            -- Inicializar datos del atacante si no existen
-            if not gungame_players[attacker_steamid64].kills then
-                gungame_players[attacker_steamid64].kills = 0
-                gungame_players[attacker_steamid64].level = 1
-            end
-            
             -- Incrementar las kills del jugador
             gungame_players[attacker_steamid64].kills = gungame_players[attacker_steamid64].kills + 1
             
             -- Verificar si el jugador sube de nivel
-            if gungame_players[attacker_steamid64].kills >= 1 then  -- 1 kill por nivel por defecto
+            if gungame_players[attacker_steamid64].kills >= 1 then
                 gungame_players[attacker_steamid64].kills = 0
                 gungame_players[attacker_steamid64].level = (gungame_players[attacker_steamid64].level or 1) + 1
                 
