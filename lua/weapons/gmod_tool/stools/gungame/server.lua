@@ -13,6 +13,8 @@ util.AddNetworkString("gungame_add_spawnpoint")
 util.AddNetworkString("gungame_clear_spawnpoints")
 util.AddNetworkString("gungame_update_spawnpoints")
 util.AddNetworkString("gungame_sync_weapons")
+util.AddNetworkString("gungame_play_win_sound")
+util.AddNetworkString("gungame_play_kill_sound")
 
 -- Server state
 local selecting = {}
@@ -23,6 +25,59 @@ local gungame_area_center = nil
 local gungame_event_active = false
 local gungame_area_points = {}
 local gungame_respawn_time = {}
+
+-- Función para detener el evento de GunGame
+function GUNGAME.StopEvent()
+    -- Restaurar a los jugadores antes de limpiar
+    for steamid64, data in pairs(gungame_players) do
+        if IsValid(data.player) then
+            data.player:StripWeapons()
+            data.player:KillSilent()
+        end
+    end
+    
+    -- Limpiar variables globales
+    gungame_players = {}
+    gungame_area_center = nil
+    gungame_event_active = false
+    gungame_area_points = {}
+    gungame_respawn_time = {}
+    spawnPoints = {}
+    
+    -- Notificar a los clientes que el evento ha terminado
+    net.Start("gungame_event_stopped")
+    net.Broadcast()
+    
+    -- Actualizar a los clientes con la lista vacía de spawn points
+    net.Start("gungame_update_spawnpoints")
+        net.WriteTable({})
+    net.Broadcast()
+    
+    print("[GunGame] Evento detenido después de la victoria")
+end
+
+-- Función para manejar la victoria de un jugador
+local function HandlePlayerWin(ply)
+    if not IsValid(ply) then return end
+    
+    -- Anunciar al ganador
+    local winnerName = ply:Nick()
+    local message = "[GunGame] ¡" .. winnerName .. " ha ganado el GunGame!"
+    
+    -- Mostrar mensaje en el chat de todos los jugadores
+    for _, v in ipairs(player.GetAll()) do
+        v:ChatPrint(message)
+    end
+    
+    -- Reproducir sonido de victoria solo para el ganador
+    net.Start("gungame_play_win_sound")
+    net.Send(ply)
+    
+    -- Esperar un poco antes de detener el evento para que los jugadores vean el mensaje
+    timer.Simple(5, function()
+        GUNGAME.StopEvent()
+    end)
+end
 
 -- Función para obtener las kills de un jugador
 function GUNGAME.GetPlayerKills(steamid64)
@@ -316,30 +371,64 @@ hook.Add("PlayerDeath", "gungame_player_death", function(victim, inflictor, atta
         
         -- Verificar si ambos están en el evento
         if gungame_players[attacker_steamid64] and gungame_players[victim_steamid64] then
-            -- Incrementar el contador de kills
-            local attackerData = gungame_players[attacker_steamid64]
-            attackerData.kills = (attackerData.kills or 0) + 1
+            -- Inicializar datos del atacante si no existen
+            if not gungame_players[attacker_steamid64].kills then
+                gungame_players[attacker_steamid64].kills = 0
+                gungame_players[attacker_steamid64].level = 1
+            end
             
-            -- Actualizar el arma del atacante
-            if GUNGAME.Weapons and #GUNGAME.Weapons > 0 then
-                local nextWeaponIndex = (attackerData.kills % #GUNGAME.Weapons) + 1
-                local nextWeapon = GUNGAME.Weapons[nextWeaponIndex]
+            -- Incrementar las kills del jugador
+            gungame_players[attacker_steamid64].kills = gungame_players[attacker_steamid64].kills + 1
+            
+            -- Verificar si el jugador sube de nivel
+            if gungame_players[attacker_steamid64].kills >= 1 then  -- 1 kill por nivel por defecto
+                gungame_players[attacker_steamid64].kills = 0
+                gungame_players[attacker_steamid64].level = (gungame_players[attacker_steamid64].level or 1) + 1
                 
-                if nextWeapon then
+                -- Verificar si el jugador ha alcanzado el nivel máximo (última arma)
+                if gungame_players[attacker_steamid64].level > #GUNGAME.Weapons then
+                    HandlePlayerWin(attacker)
+                    return
+                end
+                
+                -- Dar el arma correspondiente al nuevo nivel
+                local weaponID = GUNGAME.Weapons[gungame_players[attacker_steamid64].level]
+                if weaponID then
                     timer.Simple(0.1, function()
                         if IsValid(attacker) then
                             attacker:StripWeapons()
-                            attacker:Give(nextWeapon)
-                            attacker:SelectWeapon(nextWeapon)
-                            attacker:ChatPrint("¡Nueva arma desbloqueada: " .. nextWeapon .. "!")
-                            print("[GunGame] Arma " .. nextWeapon .. " dada a " .. attacker:Nick() .. " después de matar a " .. victim:Nick())
+                            attacker:Give(weaponID)
+                            attacker:SelectWeapon(weaponID)
+                            
+                            -- Obtener el nombre bonito del arma si existe
+                            local weaponName = weapons.Get(weaponID) and weapons.Get(weaponID).PrintName or weaponID
+                            attacker:ChatPrint("[GunGame] ¡Nivel " .. gungame_players[attacker_steamid64].level .. "! " .. 
+                                          "Arma: " .. weaponName)
+                            
+                            -- Anunciar en el chat general
+                            PrintMessage(HUD_PRINTTALK, attacker:Nick() .. " ha subido al nivel " .. 
+                                        gungame_players[attacker_steamid64].level .. " (" .. weaponName .. ")")
                         end
                     end)
                 end
+            else
+                -- Mostrar progreso hacia la siguiente arma
+                local killsNeeded = 1 - gungame_players[attacker_steamid64].kills
+                local currentLevel = gungame_players[attacker_steamid64].level or 1
+                local nextWeapon = GUNGAME.Weapons[currentLevel + 1] or "Desconocida"
+                local weaponName = weapons.Get(nextWeapon) and weapons.Get(nextWeapon).PrintName or nextWeapon
+                
+                attacker:ChatPrint(string.format("[GunGame] %d kill(s) más para la siguiente arma (%s - Nivel %d)", 
+                    killsNeeded, weaponName, currentLevel + 1))
             end
             
-            -- Mostrar mensaje en el chat
-            PrintMessage(HUD_PRINTTALK, attacker:Nick() .. " ha asesinado a " .. victim:Nick() .. "! (Kills: " .. attackerData.kills .. ")")
+            -- Mostrar mensaje en el chat sobre el asesinato
+            PrintMessage(HUD_PRINTTALK, attacker:Nick() .. " ha asesinado a " .. victim:Nick() .. 
+                          "! (Nivel " .. (gungame_players[attacker_steamid64].level or 1) .. ")")
+            
+            -- Reproducir sonido de kill para el atacante
+            net.Start("gungame_play_kill_sound")
+            net.Send(attacker)
         end
     end
 end)

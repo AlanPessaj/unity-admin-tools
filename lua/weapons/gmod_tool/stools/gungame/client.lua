@@ -15,6 +15,24 @@ language.Add("tool.gungame.desc", "Creado por AlanPessaj ◢ ◤")
 language.Add("tool.gungame.0", "Configura las opciones en el menú de la herramienta.")
 
 -- Network receivers
+net.Receive("gungame_play_win_sound", function()
+    local winSound = "gungame/win/win_sound.wav"
+    if file.Exists("sound/" .. winSound, "GAME") then
+        surface.PlaySound(winSound)
+    else
+        surface.PlaySound("ambient/levels/citadel/strange_talk" .. math.random(1, 4) .. ".wav")
+    end
+end)
+
+net.Receive("gungame_play_kill_sound", function()
+    local killSound = "gungame/kill/kill_sound.mp3"
+    if file.Exists("sound/" .. killSound, "GAME") then
+        surface.PlaySound(killSound)
+    else
+        surface.PlaySound("buttons/button15.mp3")
+    end
+end)
+
 net.Receive("gungame_area_update_points", function()
     GUNGAME.AreaPoints = net.ReadTable() or {}
     -- Update the panel if it exists
