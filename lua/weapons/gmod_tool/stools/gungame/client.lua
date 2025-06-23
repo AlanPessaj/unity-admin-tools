@@ -43,6 +43,51 @@ net.Receive("gungame_play_kill_sound", function()
     end
 end)
 
+-- Reproducir sonido de cuenta regresiva
+net.Receive("gungame_play_countdown_sound", function()
+    local countdownSound = "gungame/countdown/countdown_sound.mp3"
+    if file.Exists("sound/" .. countdownSound, "GAME") then
+        sound.PlayFile("sound/" .. countdownSound, "noplay", function(station, errorID, errorName)
+            if IsValid(station) then
+                station:SetVolume(3)
+                station:Play()
+            end
+        end)
+    end
+    
+    -- Animación de parpadeo del temporizador
+    if IsValid(GUNGAME.EventPanel) and IsValid(GUNGAME.EventPanel.TimeLeft) then
+        local originalColor = Color(0, 150, 255)
+        local flashColor = Color(255, 0, 0)
+        local flashCount = 0
+        local maxFlashes = 30
+        local flashInterval = 0.3
+        
+        -- Función para alternar el color
+        local function ToggleFlash()
+            if not IsValid(GUNGAME.EventPanel) or not IsValid(GUNGAME.EventPanel.TimeLeft) then return end
+            
+            local currentColor = GUNGAME.EventPanel.TimeLeft:GetTextColor()
+            local newColor = (currentColor.r == originalColor.r) and flashColor or originalColor
+            
+            GUNGAME.EventPanel.TimeLeft:SetTextColor(newColor)
+            
+            flashCount = flashCount + 0.5
+            
+            if flashCount < maxFlashes then
+                timer.Simple(flashInterval, ToggleFlash)
+            else
+                if IsValid(GUNGAME.EventPanel) and IsValid(GUNGAME.EventPanel.TimeLeft) then
+                    GUNGAME.EventPanel.TimeLeft:SetTextColor(originalColor)
+                end
+            end
+        end
+        
+        -- Iniciar la animación
+        ToggleFlash()
+    end
+end)
+
 -- Recibir mensajes de depuración del servidor
 net.Receive("gungame_debug_message", function()
     local message = net.ReadString()

@@ -13,8 +13,6 @@ util.AddNetworkString("gungame_add_spawnpoint")
 util.AddNetworkString("gungame_clear_spawnpoints")
 util.AddNetworkString("gungame_update_spawnpoints")
 util.AddNetworkString("gungame_sync_weapons")
-util.AddNetworkString("gungame_play_win_sound")
-util.AddNetworkString("gungame_play_kill_sound")
 util.AddNetworkString("gungame_debug_message")
 util.AddNetworkString("gungame_options")
 
@@ -305,6 +303,18 @@ net.Receive("gungame_start_event", function(_, ply)
         if IsValid(time_limit_timer) then
             time_limit_timer:Remove()
             time_limit_timer = nil
+        end
+        
+        -- Crear un temporizador para la notificación de 10 segundos
+        local warningTime = GUNGAME.TimeLimit - 15
+        if warningTime > 0 then
+            timer.Create("GunGame_10SecWarning", warningTime, 1, function()
+                if gungame_event_active and not has_winner then
+                    -- Enviar sonido de cuenta regresiva a todos los jugadores
+                    net.Start("gungame_play_countdown_sound")
+                    net.Broadcast()
+                end
+            end)
         end
         
         -- Crear el temporizador con el límite de tiempo especificado
