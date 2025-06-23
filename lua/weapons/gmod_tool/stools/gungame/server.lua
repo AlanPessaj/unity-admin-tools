@@ -259,6 +259,13 @@ net.Receive("gungame_start_event", function(_, ply)
 end)
 
 net.Receive("gungame_stop_event", function(_, ply)
+    -- Notificar a los jugadores del evento que ha terminado
+    for steamid64, data in pairs(gungame_players) do
+        if IsValid(data.player) then
+            data.player:ChatPrint("[GunGame] ¡El evento ha sido detenido!")
+        end
+    end
+    
     -- Restaurar a los jugadores antes de limpiar
     for steamid64, data in pairs(gungame_players) do
         if IsValid(data.player) then
@@ -276,7 +283,7 @@ net.Receive("gungame_stop_event", function(_, ply)
     -- Limpiar los spawn points
     spawnPoints = {}
 
-    -- Notificar a los clientes
+    -- Notificar a los clientes que el evento ha terminado
     net.Start("gungame_event_stopped")
     net.Broadcast()
     
