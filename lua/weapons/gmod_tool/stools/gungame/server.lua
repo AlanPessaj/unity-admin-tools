@@ -178,27 +178,56 @@ net.Receive("gungame_start_event", function(_, ply)
     gungame_players = {}
     event_starter = ply
 
-    -- Find players inside the area
+    -- Obtener puntos de spawn dentro del área
+    local validSpawnPoints = {}
+    for _, spawnPoint in ipairs(spawnPoints) do
+        if GUNGAME.PointInPoly2D(spawnPoint.pos, area) then
+            table.insert(validSpawnPoints, spawnPoint)
+        end
+    end
+    table.Shuffle(validSpawnPoints)
+
     local playerCount = 0
+    local spawnIndex = 1
+    local playersInArea = {}
+    
+    -- Recolectar a los jugadores en el área
     for _, p in ipairs(player.GetAll()) do
         if GUNGAME.PointInPoly2D(p:GetPos(), area) then
-            local steamid64 = p:SteamID64()
-            if not gungame_players[steamid64] then
-                gungame_players[steamid64] = {
-                    player = p,
-                    kills = 0,
-                    steamid64 = steamid64,
-                    weaponIndex = 0
-                }
-                playerCount = playerCount + 1
-                
-                -- Dar arma inicial (índice 0)
-                p:StripWeapons()
-                if GUNGAME.Weapons and #GUNGAME.Weapons > 0 then
-                    local firstWeapon = GUNGAME.Weapons[1]
-                    if firstWeapon then
-                        p:Give(firstWeapon)
-                    end
+            table.insert(playersInArea, p)
+        end
+    end
+    table.Shuffle(playersInArea)
+    
+    -- Ahora asignar un spawn point a cada jugador
+    for _, p in ipairs(playersInArea) do
+        local steamid64 = p:SteamID64()
+        if not gungame_players[steamid64] then
+            local spawnPoint = validSpawnPoints[spawnIndex]
+            if not spawnPoint and #validSpawnPoints > 0 then
+                spawnIndex = 1
+                spawnPoint = validSpawnPoints[spawnIndex]
+            end
+            
+            gungame_players[steamid64] = {
+                player = p,
+                kills = 0,
+                steamid64 = steamid64,
+                weaponIndex = 0,
+                spawnPoint = spawnPoint
+            }
+            playerCount = playerCount + 1
+            if spawnPoint then
+                p:SetPos(spawnPoint.pos)
+                p:SetEyeAngles(spawnPoint.ang or Angle(0, 0, 0))
+                spawnIndex = spawnIndex + 1
+            end
+            
+            p:StripWeapons()
+            if GUNGAME.Weapons and #GUNGAME.Weapons > 0 then
+                local firstWeapon = GUNGAME.Weapons[1]
+                if firstWeapon then
+                    p:Give(firstWeapon)
                 end
             end
         end
@@ -206,7 +235,6 @@ net.Receive("gungame_start_event", function(_, ply)
 
     gungame_event_active = true
     
-    -- Imprimir información de depuración
     DebugMessage("Event started with " .. table.Count(gungame_players) .. " players")
     for steamid64, data in pairs(gungame_players) do
         local msg = "Player added: " .. data.player:Nick() .. " (SteamID64: " .. steamid64 .. ")"
@@ -215,7 +243,6 @@ net.Receive("gungame_start_event", function(_, ply)
         end
     end
     
-    -- Mensaje a los jugadores participantes
     for steamid64, data in pairs(gungame_players) do
         if IsValid(data.player) then
             data.player:ChatPrint("[GunGame] ¡El evento ha comenzado!")
@@ -230,7 +257,6 @@ net.Receive("gungame_stop_event", function(_, ply)
         end
     end
     
-    -- Restaurar a los jugadores antes de limpiar
     for steamid64, data in pairs(gungame_players) do
         if IsValid(data.player) then
             data.player:StripWeapons()
@@ -291,8 +317,16 @@ hook.Add("PlayerSpawn", "gungame_respawn_in_area", function(ply)
     if not IsValid(ply) then return end
     if not gungame_event_active or not gungame_area_center then return end
     local steamid64 = ply:SteamID64()
-    if not gungame_players[steamid64] then return end
-    HandlePlayerRespawn(ply, true)
+    local playerData = gungame_players[steamid64]
+    if not playerData then return end
+    
+    -- Usar el spawn point guardado si existe
+    if playerData.spawnPoint then
+        ply:SetPos(playerData.spawnPoint.pos)
+        ply:SetEyeAngles(playerData.spawnPoint.ang or Angle(0, 0, 0))
+    else
+        HandlePlayerRespawn(ply, true)
+    end
 end)
 
 -- Hook para el respawn después de morir
@@ -303,9 +337,18 @@ hook.Add("PlayerSpawn", "gungame_respawn_after_death", function(ply)
     local steamid64 = ply:SteamID64()
     local playerData = gungame_players[steamid64]
     if not playerData then return end
+    
     timer.Simple(0.1, function()
         if IsValid(ply) and gungame_event_active then
-            HandlePlayerRespawn(ply, false)
+            -- Usar el spawn point guardado si existe
+            if playerData.spawnPoint then
+                ply:SetPos(playerData.spawnPoint.pos)
+                ply:SetEyeAngles(playerData.spawnPoint.ang or Angle(0, 0, 0))
+            else
+                HandlePlayerRespawn(ply, false)
+            end
+            
+            -- Dar armas
             if GUNGAME.Weapons and #GUNGAME.Weapons > 0 then
                 local weaponIndex = (playerData.kills % #GUNGAME.Weapons) + 1
                 local weaponClass = GUNGAME.Weapons[weaponIndex]
