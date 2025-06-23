@@ -55,13 +55,26 @@ net.Receive("gungame_options", function(len, ply)
     GUNGAME.PlayerArmor = armor
     -- Set time limit (negative means no limit)
     if timeLimit < 0 then
-        GUNGAME.TimeLimit = -1  -- No time limit
+        GUNGAME.TimeLimit = -1
         DebugMessage(string.format("Game options updated - Health: %d, Armor: %d, Time: No limit", 
             health, armor))
     else
-        GUNGAME.TimeLimit = timeLimit * 60  -- Convert minutes to seconds
-        DebugMessage(string.format("Game options updated - Health: %d, Armor: %d, Time: %d minutes", 
-            health, armor, timeLimit))
+        GUNGAME.TimeLimit = timeLimit  -- El tiempo ya viene en segundos desde el cliente
+        local timeLeft = GUNGAME.TimeLimit - (CurTime() - event_start_time)
+        if timeLeft <= 0 then
+            timeLeft = 0
+        end
+        
+        local minutes = math.floor(timeLeft / 60)
+        local seconds = math.Round(timeLeft % 60)
+        
+        if minutes > 0 then
+            DebugMessage(string.format("Game options updated - Health: %d, Armor: %d, Time: %d:%02d", 
+                health, armor, minutes, seconds))
+        else
+            DebugMessage(string.format("Game options updated - Health: %d, Armor: %d, Time: %d seconds", 
+                health, armor, math.Round(timeLeft)))
+        end
     end
 end)
 
@@ -285,7 +298,6 @@ net.Receive("gungame_start_event", function(_, ply)
         
         time_limit_timer = timer.Create("GunGame_TimeLimit", GUNGAME.TimeLimit, 1, function()
             if gungame_event_active then
-                -- Buscar al jugador con más kills
                 local topPlayer = nil
                 local topKills = -1
                 

@@ -392,11 +392,40 @@ function TOOL.BuildCPanel(panel)
     timeLabel:SetTextColor(Color(40, 40, 40))
     
     local timeEntry = vgui.Create("DTextEntry", timeContainer)
-    timeEntry:Dock(FILL)
-    timeEntry:SetNumeric(true)
+    timeEntry:Dock(LEFT)
+    timeEntry:SetWide(100)
     timeEntry:SetValue("-1")
-    timeEntry:SetPlaceholderText("Enter time in minutes")
-    timeEntry:SetUpdateOnType(true)
+    timeEntry:SetTooltip("Time limit in minutes (-1 for no limit)")
+    timeEntry:SetNumeric(true)
+    
+    -- Validar que solo se ingresen números, punto decimal y signo negativo
+    timeEntry.OnChange = function(self)
+        local text = self:GetValue()
+        local newText = ""
+        local hasDecimal = false
+        
+        for i = 1, #text do
+            local c = text:sub(i, i)
+            if c == "-" and i == 1 then
+                newText = newText .. c
+            elseif c == "." and not hasDecimal then
+                newText = newText .. c
+                hasDecimal = true
+            elseif tonumber(c) ~= nil then
+                newText = newText .. c
+            end
+        end
+        
+        -- Limitar a un máximo de 60
+        if tonumber(newText) and tonumber(newText) > 60 then
+            newText = "60"
+        end
+        
+        if newText ~= text then
+            self:SetText(newText)
+            self:SetCaretPos(#newText)
+        end
+    end
     
     -- Store the time entry for later use
     GUNGAME.TimeEntry = timeEntry
@@ -493,7 +522,7 @@ function TOOL.BuildCPanel(panel)
             end
             
             local timeValue = tonumber(GUNGAME.TimeEntry:GetValue()) or 10
-            local timeDisplay = timeValue < 0 and "No limit" or (timeValue .. " minutes")
+            local timeDisplay = timeValue < 0 and "No limit" or (timeValue .. (timeValue == 1 and " minute" or " minutes"))
             
             Derma_Query(
                 "Are you sure you want to start the event?\n\n" ..
@@ -506,9 +535,11 @@ function TOOL.BuildCPanel(panel)
                 "Yes", function()
                     -- Send game options
                     net.Start("gungame_options")
-                        net.WriteUInt(tonumber(GUNGAME.HealthEntry:GetValue()) or 100, 16)
-                        net.WriteUInt(tonumber(GUNGAME.ArmorEntry:GetValue()) or 100, 16)
-                        net.WriteUInt(timeValue, 16)
+                        net.WriteUInt(math.floor(tonumber(GUNGAME.HealthEntry:GetValue()) or 100), 16)
+                        net.WriteUInt(math.floor(tonumber(GUNGAME.ArmorEntry:GetValue()) or 100), 16)
+                        -- Enviar el tiempo en segundos (multiplicado por 60) como entero
+                        local timeInSeconds = math.floor(timeValue * 60)
+                        net.WriteUInt(timeInSeconds >= 0 and timeInSeconds or 0, 16)
                     net.SendToServer()
                     
                     -- Then start the event
