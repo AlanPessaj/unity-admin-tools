@@ -16,20 +16,37 @@ language.Add("tool.gungame.0", "Configura las opciones en el menú de la herrami
 
 -- Network receivers
 net.Receive("gungame_play_win_sound", function()
-    local winSound = "gungame/win/win_sound.wav"
+    local winSound = "gungame/win/win_sound.mp3"
     if file.Exists("sound/" .. winSound, "GAME") then
-        surface.PlaySound(winSound)
-    else
-        surface.PlaySound("ambient/levels/citadel/strange_talk" .. math.random(1, 4) .. ".wav")
+        sound.PlayFile("sound/" .. winSound, "noplay", function(station, errorID, errorName)
+            if IsValid(station) then
+                station:SetVolume(1)
+                station:Play()
+            end
+        end)
     end
 end)
 
 net.Receive("gungame_play_kill_sound", function()
     local killSound = "gungame/kill/kill_sound.mp3"
     if file.Exists("sound/" .. killSound, "GAME") then
-        surface.PlaySound(killSound)
-    else
-        surface.PlaySound("buttons/button15.mp3")
+        sound.PlayFile("sound/" .. killSound, "noplay", function(station, errorID, errorName)
+            if IsValid(station) then
+                station:SetVolume(2)
+                station:Play()
+            end
+        end)
+    end
+end)
+
+-- Recibir mensajes de depuración del servidor
+net.Receive("gungame_debug_message", function()
+    local message = net.ReadString()
+    if message then
+        -- Mostrar en el chat del jugador
+        LocalPlayer():ChatPrint("[GunGame Debug] " .. message)
+        -- También mostrar en consola
+        MsgC(Color(0, 255, 255), "[GunGame Debug] ", Color(255, 255, 255), message, "\n")
     end
 end)
 
@@ -56,9 +73,6 @@ net.Receive("gungame_event_stopped", function()
     if GUNGAME.SetButtonState then
         GUNGAME.SetButtonState(false)
     end
-    
-    notification.AddLegacy("Event stopped", NOTIFY_CLEANUP, 3)
-    surface.PlaySound("buttons/button15.wav")
 end)
 
 -- Función para actualizar la lista de armas en la UI
@@ -89,8 +103,6 @@ local function SyncWeaponsWithServer()
             net.WriteString(weaponID or "")
         end
     net.SendToServer()
-    
-    print("[GunGame] Lista de " .. #GUNGAME.Weapons .. " armas enviada al servidor")
 end
 
 -- Función para limpiar la lista de armas
