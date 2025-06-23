@@ -16,6 +16,7 @@ util.AddNetworkString("gungame_sync_weapons")
 util.AddNetworkString("gungame_play_win_sound")
 util.AddNetworkString("gungame_play_kill_sound")
 util.AddNetworkString("gungame_debug_message")
+util.AddNetworkString("gungame_options")
 
 -- Server state
 local selecting = {}
@@ -38,6 +39,18 @@ local function DebugMessage(msg)
     end
     print("[GunGame Debug] " .. msg)
 end
+
+-- Network receive handler for game options
+net.Receive("gungame_options", function(len, ply)
+    if not ply:IsAdmin() then return end
+    
+    local health = net.ReadUInt(16)
+    local armor = net.ReadUInt(16)
+    
+    -- Store the options in the global table
+    GUNGAME.PlayerHealth = health
+    GUNGAME.PlayerArmor = armor
+end)
 
 -- Función para detener el evento de GunGame
 function GUNGAME.StopEvent()
@@ -236,6 +249,8 @@ net.Receive("gungame_start_event", function(_, ply)
             end
             
             p:StripWeapons()
+            p:SetHealth(GUNGAME.PlayerHealth)
+            p:SetArmor(GUNGAME.PlayerArmor)
             if GUNGAME.Weapons and #GUNGAME.Weapons > 0 then
                 local firstWeapon = GUNGAME.Weapons[1]
                 if firstWeapon then
@@ -341,6 +356,9 @@ hook.Add("PlayerSpawn", "gungame_respawn_in_area", function(ply)
         HandlePlayerRespawn(ply, true)
     end
     
+    ply:SetHealth(GUNGAME.PlayerHealth)
+    ply:SetArmor(GUNGAME.PlayerArmor)
+    
     -- Dar armas si es necesario
     if GUNGAME.Weapons and #GUNGAME.Weapons > 0 then
         local weaponIndex = ((playerData.kills or 0) % #GUNGAME.Weapons) + 1
@@ -361,6 +379,16 @@ end)
 -- Hook para el respawn después de morir
 hook.Add("PlayerSpawn", "gungame_respawn_after_death", function(ply)
     if not IsValid(ply) then return end
+    
+    -- Establecer vida y armadura al reaparecer después de morir
+    if gungame_event_active and gungame_players[ply:SteamID64()] then
+        timer.Simple(0.1, function()
+            if IsValid(ply) then
+                ply:SetHealth(GUNGAME.PlayerHealth or 100)
+                ply:SetArmor(GUNGAME.PlayerArmor or 0)
+            end
+        end)
+    end
     if not gungame_event_active or not gungame_area_center then return end
     
     local steamid64 = ply:SteamID64()

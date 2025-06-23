@@ -354,6 +354,29 @@ function TOOL.BuildCPanel(panel)
     
     -- Store the health entry for later use
     GUNGAME.HealthEntry = healthEntry
+    
+    -- Armor input field
+    local armorContainer = vgui.Create("DPanel", panel)
+    armorContainer:Dock(TOP)
+    armorContainer:DockMargin(0, 0, 0, 8)
+    armorContainer:SetTall(28)
+    armorContainer:SetPaintBackground(false)
+    
+    local armorLabel = vgui.Create("DLabel", armorContainer)
+    armorLabel:Dock(LEFT)
+    armorLabel:SetWide(60)
+    armorLabel:SetText("Armor:")
+    armorLabel:SetTextColor(Color(40, 40, 40))
+    
+    local armorEntry = vgui.Create("DTextEntry", armorContainer)
+    armorEntry:Dock(FILL)
+    armorEntry:SetNumeric(true)
+    armorEntry:SetValue("100")
+    armorEntry:SetPlaceholderText("Enter armor value")
+    armorEntry:SetUpdateOnType(true)
+    
+    -- Store the armor entry for later use
+    GUNGAME.ArmorEntry = armorEntry
 
     -- Event control button
     GUNGAME.EventActive = false
@@ -449,9 +472,18 @@ function TOOL.BuildCPanel(panel)
             Derma_Query(
                 "Are you sure you want to start the event?\n\n" ..
                 "Players in the area: " .. playerCount .. "\n" ..
-                "Spawn points available: " .. spawnPointCount,
+                "Spawn points available: " .. spawnPointCount .. "\n" ..
+                "Health: " .. (GUNGAME.HealthEntry:GetValue() or "100") .. "\n" ..
+                "Armor: " .. (GUNGAME.ArmorEntry:GetValue() or "100"),
                 "Confirm event start",
                 "Yes", function()
+                    -- Send health and armor options first
+                    net.Start("gungame_options")
+                        net.WriteUInt(tonumber(GUNGAME.HealthEntry:GetValue()) or 100, 16)
+                        net.WriteUInt(tonumber(GUNGAME.ArmorEntry:GetValue()) or 100, 16)
+                    net.SendToServer()
+                    
+                    -- Then start the event
                     net.Start("gungame_start_event")
                     net.SendToServer()
                     GUNGAME.SetButtonState(true)
