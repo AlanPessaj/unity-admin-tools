@@ -427,7 +427,7 @@ hook.Add("PlayerSpawn", "gungame_respawn_in_area", function(ply)
     
     -- Dar armas si es necesario
     if GUNGAME.Weapons and #GUNGAME.Weapons > 0 then
-        local weaponIndex = ((playerData.kills or 0) % #GUNGAME.Weapons) + 1
+        local weaponIndex = math.min(playerData.level or 1, #GUNGAME.Weapons)
         local weaponClass = GUNGAME.Weapons[weaponIndex]
         
         if weaponClass then
@@ -473,16 +473,15 @@ hook.Add("PlayerSpawn", "gungame_respawn_after_death", function(ply)
             HandlePlayerRespawn(ply, false)
         end
         
-        -- Dar armas
+        -- Dar armas basadas en el nivel actual
         if GUNGAME.Weapons and #GUNGAME.Weapons > 0 then
-            local weaponIndex = ((playerData.kills or 0) % #GUNGAME.Weapons) + 1
+            local weaponIndex = math.min(playerData.level or 1, #GUNGAME.Weapons)
             local weaponClass = GUNGAME.Weapons[weaponIndex]
             
             if weaponClass then
                 ply:StripWeapons()
                 ply:Give(weaponClass)
                 ply:SelectWeapon(weaponClass)
-
             end
         end
     end)
