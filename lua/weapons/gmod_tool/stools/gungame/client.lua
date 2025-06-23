@@ -375,16 +375,49 @@ function TOOL.BuildCPanel(panel)
     hook.Add("GunGame_WeaponsUpdated", "UpdateStartButton", UpdateStartButtonState)
     hook.Add("GunGame_AreaUpdated", "UpdateStartButton", UpdateStartButtonState)
 
+    -- Función para contar jugadores dentro del área
+    local function CountPlayersInArea()
+        local count = 0
+        local areaPoints = GUNGAME.AreaPoints
+        if #areaPoints < 3 then return 0 end
+        
+        for _, ply in ipairs(player.GetAll()) do
+            if ply:Alive() and GUNGAME.PointInPoly2D(ply:GetPos(), areaPoints) then
+                count = count + 1
+            end
+        end
+        return count
+    end
+
     -- Start/stop event button handler
     btnStart.DoClick = function()
         if not GUNGAME.EventActive then
+            -- Verificar si hay un área definida y armas configuradas
             if #GUNGAME.AreaPoints == 0 or not GUNGAME.Weapons or #GUNGAME.Weapons == 0 then
                 notification.AddLegacy("Cannot start event: Missing area or weapons", NOTIFY_ERROR, 3)
                 return
             end
             
+            -- Contar jugadores dentro del área
+            local playerCount = CountPlayersInArea()
+            
+            -- Verificar si hay suficientes puntos de spawn
+            local spawnPointCount = #(GUNGAME.SpawnPoints or {})
+            
+            if playerCount < 2 then
+                notification.AddLegacy("You need at least 2 players in the area to start the event", NOTIFY_ERROR, 3)
+                return
+            end
+            
+            if spawnPointCount < playerCount then
+                notification.AddLegacy("There are not enough spawn points (" .. spawnPointCount .. ") for players (" .. playerCount .. ")", NOTIFY_ERROR, 5)
+                return
+            end
+            
             Derma_Query(
-                "Are you sure you want to start the event?",
+                "Are you sure you want to start the event?\n\n" ..
+                "Players in the area: " .. playerCount .. "\n" ..
+                "Spawn points available: " .. spawnPointCount,
                 "Confirm event start",
                 "Yes", function()
                     net.Start("gungame_start_event")
