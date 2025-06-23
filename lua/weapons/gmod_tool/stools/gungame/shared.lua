@@ -16,9 +16,12 @@ util.AddNetworkString("gungame_clear_spawnpoints")
 util.AddNetworkString("gungame_update_spawnpoints")
 util.AddNetworkString("gungame_sync_weapons")
 util.AddNetworkString("gungame_options")
+util.AddNetworkString("gungame_last_weapon")
 
+-- Default player settings
 GUNGAME.PlayerHealth = 100
 GUNGAME.PlayerArmor = 100
+GUNGAME.TimeLimit = -1
 
 GUNGAME.Config = {
     MinPoints = 3, -- Minimum points to define an area

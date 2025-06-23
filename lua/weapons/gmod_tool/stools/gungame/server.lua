@@ -46,10 +46,21 @@ net.Receive("gungame_options", function(len, ply)
     
     local health = net.ReadUInt(16)
     local armor = net.ReadUInt(16)
+    local timeLimit = net.ReadUInt(16)
     
     -- Store the options in the global table
     GUNGAME.PlayerHealth = health
     GUNGAME.PlayerArmor = armor
+    -- Set time limit (negative means no limit)
+    if timeLimit < 0 then
+        GUNGAME.TimeLimit = -1  -- No time limit
+        DebugMessage(string.format("Game options updated - Health: %d, Armor: %d, Time: No limit", 
+            health, armor))
+    else
+        GUNGAME.TimeLimit = timeLimit * 60  -- Convert minutes to seconds
+        DebugMessage(string.format("Game options updated - Health: %d, Armor: %d, Time: %d minutes", 
+            health, armor, timeLimit))
+    end
 end)
 
 -- Función para detener el evento de GunGame
@@ -447,8 +458,20 @@ hook.Add("PlayerDeath", "gungame_player_death", function(victim, inflictor, atta
                 gungame_players[attacker_steamid64].kills = 0
                 gungame_players[attacker_steamid64].level = (gungame_players[attacker_steamid64].level or 1) + 1
                 
+                -- Verificar si el jugador está en la penúltima arma (último nivel antes de ganar)
+                if gungame_players[attacker_steamid64].level == #GUNGAME.Weapons then
+                    local weaponName = weapons.Get(GUNGAME.Weapons[gungame_players[attacker_steamid64].level]) and 
+                                     weapons.Get(GUNGAME.Weapons[gungame_players[attacker_steamid64].level]).PrintName or 
+                                     GUNGAME.Weapons[gungame_players[attacker_steamid64].level]
+                    
+                    -- Enviar mensaje a todos los jugadores
+                    for steamid64, data in pairs(gungame_players) do
+                        if IsValid(data.player) then
+                            data.player:ChatPrint("[GunGame] ¡" .. attacker:Nick() .. " está a 1 arma de ganar!")
+                        end
+                    end
                 -- Verificar si el jugador ha alcanzado el nivel máximo (última arma)
-                if gungame_players[attacker_steamid64].level > #GUNGAME.Weapons then
+                elseif gungame_players[attacker_steamid64].level > #GUNGAME.Weapons then
                     HandlePlayerWin(attacker)
                     return
                 end

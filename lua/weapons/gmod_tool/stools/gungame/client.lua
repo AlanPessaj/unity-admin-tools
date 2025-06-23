@@ -377,6 +377,29 @@ function TOOL.BuildCPanel(panel)
     
     -- Store the armor entry for later use
     GUNGAME.ArmorEntry = armorEntry
+    
+    -- Time input field
+    local timeContainer = vgui.Create("DPanel", panel)
+    timeContainer:Dock(TOP)
+    timeContainer:DockMargin(0, 0, 0, 8)
+    timeContainer:SetTall(28)
+    timeContainer:SetPaintBackground(false)
+    
+    local timeLabel = vgui.Create("DLabel", timeContainer)
+    timeLabel:Dock(LEFT)
+    timeLabel:SetWide(100)
+    timeLabel:SetText("Time (minutes):")
+    timeLabel:SetTextColor(Color(40, 40, 40))
+    
+    local timeEntry = vgui.Create("DTextEntry", timeContainer)
+    timeEntry:Dock(FILL)
+    timeEntry:SetNumeric(true)
+    timeEntry:SetValue("-1")
+    timeEntry:SetPlaceholderText("Enter time in minutes")
+    timeEntry:SetUpdateOnType(true)
+    
+    -- Store the time entry for later use
+    GUNGAME.TimeEntry = timeEntry
 
     -- Event control button
     GUNGAME.EventActive = false
@@ -469,18 +492,23 @@ function TOOL.BuildCPanel(panel)
                 return
             end
             
+            local timeValue = tonumber(GUNGAME.TimeEntry:GetValue()) or 10
+            local timeDisplay = timeValue < 0 and "No limit" or (timeValue .. " minutes")
+            
             Derma_Query(
                 "Are you sure you want to start the event?\n\n" ..
                 "Players in the area: " .. playerCount .. "\n" ..
                 "Spawn points available: " .. spawnPointCount .. "\n" ..
                 "Health: " .. (GUNGAME.HealthEntry:GetValue() or "100") .. "\n" ..
-                "Armor: " .. (GUNGAME.ArmorEntry:GetValue() or "100"),
+                "Armor: " .. (GUNGAME.ArmorEntry:GetValue() or "100") .. "\n" ..
+                "Time limit: " .. timeDisplay,
                 "Confirm event start",
                 "Yes", function()
-                    -- Send health and armor options first
+                    -- Send game options
                     net.Start("gungame_options")
                         net.WriteUInt(tonumber(GUNGAME.HealthEntry:GetValue()) or 100, 16)
                         net.WriteUInt(tonumber(GUNGAME.ArmorEntry:GetValue()) or 100, 16)
+                        net.WriteUInt(timeValue, 16)
                     net.SendToServer()
                     
                     -- Then start the event
