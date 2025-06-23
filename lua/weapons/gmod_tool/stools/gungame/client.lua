@@ -7,6 +7,10 @@ GUNGAME.AreaPanel = nil
 GUNGAME.SpawnPoints = {}
 GUNGAME.SpawnPanel = nil
 GUNGAME.Weapons = {}
+GUNGAME.EventPanel = nil
+GUNGAME.EventActive = false
+GUNGAME.EventTimeLeft = 0
+GUNGAME.EventStartTime = 0
 local weaponListPanel
 
 -- Language strings
@@ -46,6 +50,114 @@ net.Receive("gungame_debug_message", function()
         LocalPlayer():ChatPrint("[GunGame Debug] " .. message)
         MsgC(Color(0, 255, 255), "[GunGame Debug] ", Color(255, 255, 255), message, "\n")
     end
+end)
+
+-- Función para actualizar el panel de evento
+local function UpdateEventPanel(active, eventStarter, timeLimit, startTime)
+    if not IsValid(GUNGAME.EventPanel) and active then
+        GUNGAME.EventPanel = vgui.Create("DPanel")
+        GUNGAME.EventPanel:SetSize(200, 100)
+        GUNGAME.EventPanel:SetPos(20, 20) -- Posición en la esquina superior izquierda
+        GUNGAME.EventPanel:SetDrawBackground(true)
+        GUNGAME.EventPanel.Paint = function(self, w, h)
+            draw.RoundedBox(8, 0, 0, w, h, Color(0, 0, 0, 200))
+            surface.SetDrawColor(0, 0, 255, 150)
+            surface.DrawOutlinedRect(0, 0, w, h, 2)
+        end
+        
+        -- Título alineado a la izquierda
+        GUNGAME.EventPanel.Title = vgui.Create("DLabel", GUNGAME.EventPanel)
+        GUNGAME.EventPanel.Title:SetText("GunGame")
+        GUNGAME.EventPanel.Title:SetFont("DermaLarge")
+        GUNGAME.EventPanel.Title:SetTextColor(Color(255, 255, 255))
+        GUNGAME.EventPanel.Title:SetContentAlignment(4) -- Alinear a la izquierda
+        GUNGAME.EventPanel.Title:SetSize(180, 30)
+        GUNGAME.EventPanel.Title:SetPos(10, 10)
+        
+        -- Tiempo alineado a la izquierda
+        GUNGAME.EventPanel.TimeLeft = vgui.Create("DLabel", GUNGAME.EventPanel)
+        GUNGAME.EventPanel.TimeLeft:SetText("--:--")
+        GUNGAME.EventPanel.TimeLeft:SetFont("DermaLarge")
+        GUNGAME.EventPanel.TimeLeft:SetTextColor(Color(0, 150, 255))
+        GUNGAME.EventPanel.TimeLeft:SetContentAlignment(4) -- Alinear a la izquierda
+        GUNGAME.EventPanel.TimeLeft:SetSize(180, 40)
+        GUNGAME.EventPanel.TimeLeft:SetPos(10, 40)
+        
+        -- Animación de entrada
+        GUNGAME.EventPanel:SetAlpha(0)
+        GUNGAME.EventPanel:AlphaTo(255, 0.5, 0)
+    elseif IsValid(GUNGAME.EventPanel) and not active then
+        -- Animación de salida
+        GUNGAME.EventPanel:AlphaTo(0, 0.5, 0, function()
+            if IsValid(GUNGAME.EventPanel) then
+                GUNGAME.EventPanel:Remove()
+                GUNGAME.EventPanel = nil
+            end
+        end)
+    end
+    
+    -- Actualizar estado del evento
+    GUNGAME.EventActive = active
+    if active then
+        GUNGAME.EventTimeLeft = timeLimit or 0
+        GUNGAME.EventStartTime = startTime or CurTime()
+    end
+end
+
+-- Recibir actualizaciones del estado del evento
+net.Receive("gungame_update_event_status", function()
+    local active = net.ReadBool()
+    local eventStarter = nil
+    local timeLimit = 0
+    local startTime = 0
+    
+    if active then
+        eventStarter = net.ReadEntity()
+        timeLimit = net.ReadUInt(32)
+        startTime = net.ReadUInt(32)
+    end
+    
+    UpdateEventPanel(active, eventStarter, timeLimit, startTime)
+end)
+
+-- Hook para dibujar el tiempo restante
+hook.Add("HUDPaint", "GunGame_EventHUD", function()
+    if not GUNGAME.EventActive or not IsValid(GUNGAME.EventPanel) then return end
+    
+    -- Actualizar tiempo restante
+    if GUNGAME.EventTimeLeft > 0 then
+        local timeElapsed = CurTime() - GUNGAME.EventStartTime
+        local timeLeft = math.max(0, GUNGAME.EventTimeLeft - timeElapsed)
+        
+        local minutes = math.floor(timeLeft / 60)
+        local seconds = math.floor(timeLeft % 60)
+        
+        if IsValid(GUNGAME.EventPanel.TimeLeft) then
+            GUNGAME.EventPanel.TimeLeft:SetText(string.format("Tiempo: %02d:%02d", minutes, seconds))
+            GUNGAME.EventPanel.TimeLeft:SizeToContents()
+        end
+    end
+    
+    -- Actualizar contador de jugadores
+    if IsValid(GUNGAME.EventPanel.Players) then
+        local playerCount = 0
+        for _, ply in ipairs(player.GetAll()) do
+            if IsValid(ply) and ply:Alive() then
+                playerCount = playerCount + 1
+            end
+        end
+        GUNGAME.EventPanel.Players:SetText("Jugadores: " .. playerCount)
+        GUNGAME.EventPanel.Players:SizeToContents()
+    end
+end)
+
+-- Limpiar el panel al desconectarse
+hook.Add("OnReloaded", "GunGame_CleanupEventPanel", function()
+    if IsValid(GUNGAME.EventPanel) then
+        GUNGAME.EventPanel:Remove()
+        GUNGAME.EventPanel = nil
+    end
+    GUNGAME.EventActive = false
 end)
 
 net.Receive("gungame_area_update_points", function()

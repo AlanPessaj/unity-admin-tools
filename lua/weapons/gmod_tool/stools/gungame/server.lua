@@ -42,6 +42,18 @@ local function DebugMessage(msg)
     print("[GunGame Debug] " .. msg)
 end
 
+-- Función para notificar a los clientes sobre el estado del evento
+local function UpdateEventStatus(active)
+    net.Start("gungame_update_event_status")
+        net.WriteBool(active)
+        if active then
+            net.WriteEntity(event_starter or Entity(0))
+            net.WriteUInt(GUNGAME.TimeLimit, 32)
+            net.WriteUInt(CurTime(), 32)
+        end
+    net.Broadcast()
+end
+
 -- Network receive handler for game options
 net.Receive("gungame_options", function(len, ply)
     if not ply:IsAdmin() then return end
@@ -90,6 +102,12 @@ function GUNGAME.StopEvent()
     -- Limpiar variables globales
     gungame_players = {}
     gungame_area_center = nil
+    
+    -- Notificar a los clientes que el evento ha terminado
+    if gungame_event_active then
+        UpdateEventStatus(false)
+    end
+    
     gungame_event_active = false
     gungame_area_points = {}
     gungame_respawn_time = {}
@@ -289,6 +307,9 @@ net.Receive("gungame_start_event", function(_, ply)
     gungame_event_active = true
     event_start_time = CurTime()
     has_winner = false
+    
+    -- Notificar a todos los clientes que el evento ha comenzado
+    UpdateEventStatus(true)
     
     -- Iniciar el temporizador solo si hay un límite de tiempo positivo
     if GUNGAME.TimeLimit and GUNGAME.TimeLimit > 0 then

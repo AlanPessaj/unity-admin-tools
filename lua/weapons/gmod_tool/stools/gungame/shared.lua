@@ -17,6 +17,7 @@ util.AddNetworkString("gungame_update_spawnpoints")
 util.AddNetworkString("gungame_sync_weapons")
 util.AddNetworkString("gungame_options")
 util.AddNetworkString("gungame_last_weapon")
+util.AddNetworkString("gungame_update_event_status")
 
 -- Default player settings
 GUNGAME.PlayerHealth = 100
