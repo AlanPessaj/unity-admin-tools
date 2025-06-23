@@ -70,9 +70,9 @@ local function UpdateEventPanel(active, eventStarter, timeLimit, startTime)
         GUNGAME.EventPanel.Title:SetText("GunGame")
         GUNGAME.EventPanel.Title:SetFont("DermaLarge")
         GUNGAME.EventPanel.Title:SetTextColor(Color(255, 255, 255))
-        GUNGAME.EventPanel.Title:SetContentAlignment(5) -- Centro
+        GUNGAME.EventPanel.Title:SetContentAlignment(5)
         GUNGAME.EventPanel.Title:SetSize(180, 30)
-        GUNGAME.EventPanel.Title:SetPos(10, 5) -- Ajuste de posición vertical
+        GUNGAME.EventPanel.Title:SetPos(10, 5)
         
         -- Tiempo centrado
         GUNGAME.EventPanel.TimeLeft = vgui.Create("DLabel", GUNGAME.EventPanel)
@@ -81,8 +81,18 @@ local function UpdateEventPanel(active, eventStarter, timeLimit, startTime)
         GUNGAME.EventPanel.TimeLeft:SetTextColor(Color(0, 150, 255))
         GUNGAME.EventPanel.TimeLeft:SetContentAlignment(5)
         GUNGAME.EventPanel.TimeLeft:SetSize(180, 50)
-        GUNGAME.EventPanel.TimeLeft:SetPos(10, 30)
+        GUNGAME.EventPanel.TimeLeft:SetPos(67.5, 30)
         
+        -- Mostrar/ocultar según el tiempo límite
+        if timeLimit and timeLimit > 0 then
+            GUNGAME.EventTimeLeft = timeLimit
+            GUNGAME.EventStartTime = startTime or CurTime()
+            GUNGAME.EventPanel.TimeLeft:SetVisible(true)
+        else
+            GUNGAME.EventTimeLeft = 0
+            GUNGAME.EventPanel.TimeLeft:SetVisible(false)
+        end
+
         -- Animación de entrada
         GUNGAME.EventPanel:SetAlpha(0)
         GUNGAME.EventPanel:AlphaTo(255, 0.5, 0)
