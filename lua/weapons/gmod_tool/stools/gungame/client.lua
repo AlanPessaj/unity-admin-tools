@@ -57,7 +57,7 @@ local function UpdateEventPanel(active, eventStarter, timeLimit, startTime)
     if not IsValid(GUNGAME.EventPanel) and active then
         GUNGAME.EventPanel = vgui.Create("DPanel")
         GUNGAME.EventPanel:SetSize(200, 100)
-        GUNGAME.EventPanel:SetPos(20, 20) -- Posición en la esquina superior izquierda
+        GUNGAME.EventPanel:SetPos(20, 20)
         GUNGAME.EventPanel:SetDrawBackground(true)
         GUNGAME.EventPanel.Paint = function(self, w, h)
             draw.RoundedBox(8, 0, 0, w, h, Color(0, 0, 0, 200))
@@ -65,23 +65,23 @@ local function UpdateEventPanel(active, eventStarter, timeLimit, startTime)
             surface.DrawOutlinedRect(0, 0, w, h, 2)
         end
         
-        -- Título alineado a la izquierda
+        -- Título centrado
         GUNGAME.EventPanel.Title = vgui.Create("DLabel", GUNGAME.EventPanel)
         GUNGAME.EventPanel.Title:SetText("GunGame")
         GUNGAME.EventPanel.Title:SetFont("DermaLarge")
         GUNGAME.EventPanel.Title:SetTextColor(Color(255, 255, 255))
-        GUNGAME.EventPanel.Title:SetContentAlignment(4) -- Alinear a la izquierda
+        GUNGAME.EventPanel.Title:SetContentAlignment(5) -- Centro
         GUNGAME.EventPanel.Title:SetSize(180, 30)
-        GUNGAME.EventPanel.Title:SetPos(10, 10)
+        GUNGAME.EventPanel.Title:SetPos(10, 5) -- Ajuste de posición vertical
         
-        -- Tiempo alineado a la izquierda
+        -- Tiempo centrado
         GUNGAME.EventPanel.TimeLeft = vgui.Create("DLabel", GUNGAME.EventPanel)
         GUNGAME.EventPanel.TimeLeft:SetText("--:--")
         GUNGAME.EventPanel.TimeLeft:SetFont("DermaLarge")
         GUNGAME.EventPanel.TimeLeft:SetTextColor(Color(0, 150, 255))
-        GUNGAME.EventPanel.TimeLeft:SetContentAlignment(4) -- Alinear a la izquierda
-        GUNGAME.EventPanel.TimeLeft:SetSize(180, 40)
-        GUNGAME.EventPanel.TimeLeft:SetPos(10, 40)
+        GUNGAME.EventPanel.TimeLeft:SetContentAlignment(5)
+        GUNGAME.EventPanel.TimeLeft:SetSize(180, 50)
+        GUNGAME.EventPanel.TimeLeft:SetPos(10, 30)
         
         -- Animación de entrada
         GUNGAME.EventPanel:SetAlpha(0)
@@ -133,7 +133,7 @@ hook.Add("HUDPaint", "GunGame_EventHUD", function()
         local seconds = math.floor(timeLeft % 60)
         
         if IsValid(GUNGAME.EventPanel.TimeLeft) then
-            GUNGAME.EventPanel.TimeLeft:SetText(string.format("Tiempo: %02d:%02d", minutes, seconds))
+            GUNGAME.EventPanel.TimeLeft:SetText(string.format("%02d:%02d", minutes, seconds))
             GUNGAME.EventPanel.TimeLeft:SizeToContents()
         end
     end

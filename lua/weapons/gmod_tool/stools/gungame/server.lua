@@ -321,7 +321,7 @@ net.Receive("gungame_start_event", function(_, ply)
         
         -- Crear el temporizador con el límite de tiempo especificado
         time_limit_timer = timer.Create("GunGame_TimeLimit", GUNGAME.TimeLimit, 1, function()
-            if gungame_event_active then
+            if gungame_event_active and not has_winner then
                 local topPlayer = nil
                 local topKills = -1
                 
