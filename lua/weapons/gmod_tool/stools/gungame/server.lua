@@ -32,6 +32,21 @@ local event_start_time = 0
 local time_limit_timer = nil
 local top_players_timer = nil
 
+
+function ScalePlayer(ply, scale)
+    if not IsValid(ply) or not ply:IsPlayer() or not isnumber(scale) or scale <= 0 then
+        return
+    end
+    
+    -- Escalar el modelo
+    ply:SetModelScale(scale, 0)
+    
+    -- Ajustar colisión
+    local min, max = ply:GetHull()
+    ply:SetHull(min * scale, max * scale)
+    ply:SetHullDuck(min * scale * 0.5, max * scale * 0.5)
+end
+
 -- Función para enviar mensajes de depuración al iniciador del evento
 local function DebugMessage(msg)
     if IsValid(event_starter) then
@@ -61,12 +76,15 @@ net.Receive("gungame_options", function(len, ply)
     local health = net.ReadUInt(16)
     local armor = net.ReadUInt(16)
     local speedMultiplier = net.ReadFloat()
+    local playerScale = net.ReadFloat()
     local timeLimit = net.ReadUInt(16)
     
     -- Store the options in the global table
     GUNGAME.PlayerHealth = health
     GUNGAME.PlayerArmor = armor
     GUNGAME.PlayerSpeedMultiplier = math.max(0.1, math.min(10.0, speedMultiplier))
+    GUNGAME.PlayerScale = math.max(0.1, math.min(5.0, playerScale)) -- Clamp between 0.1 and 5.0
+    
     if timeLimit < 0 then
         GUNGAME.TimeLimit = -1
     else
@@ -84,6 +102,7 @@ function GUNGAME.StopEvent()
         if IsValid(data.player) then
             data.player:StripWeapons()
             data.player:KillSilent()
+            ScalePlayer(data.player, 1)
         end
     end
     
@@ -300,6 +319,9 @@ net.Receive("gungame_start_event", function(_, ply)
             p:SetWalkSpeed(250 * GUNGAME.PlayerSpeedMultiplier)
             p:SetRunSpeed(500 * GUNGAME.PlayerSpeedMultiplier)
             p:SetSlowWalkSpeed(150 * GUNGAME.PlayerSpeedMultiplier)
+            
+            -- Aplicar escala al jugador
+            ScalePlayer(p, GUNGAME.PlayerScale or 1.0)
         end
     end
 
