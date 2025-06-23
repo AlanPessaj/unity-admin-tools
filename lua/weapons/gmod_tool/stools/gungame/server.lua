@@ -188,7 +188,7 @@ net.Receive("gungame_start_event", function(_, ply)
                     player = p,
                     kills = 0,
                     steamid64 = steamid64,
-                    weaponIndex = 0 -- Índice del arma actual
+                    weaponIndex = 0
                 }
                 playerCount = playerCount + 1
                 
@@ -383,9 +383,10 @@ timer.Create("gungame_area_check", GUNGAME.Config.CheckInterval, 0, function()
     if not gungame_event_active or not gungame_players or not gungame_area_points then return end
     
     local area = gungame_area_points
-    for _, ply in ipairs(player.GetAll()) do
-        local steamid64 = ply:SteamID64()
-        if gungame_players[steamid64] and IsValid(ply) and ply:Alive() then
+    
+    for steamid64, data in pairs(gungame_players) do
+        local ply = data.player
+        if IsValid(ply) and ply:Alive() then
             if not GUNGAME.PointInPoly2D(ply:GetPos(), area) then
                 ply:Kill()
             end
