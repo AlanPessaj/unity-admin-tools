@@ -758,8 +758,8 @@ hook.Add("PlayerDeath", "gungame_player_death", function(victim, inflictor, atta
                     regenerating_players[attacker_steamid64] = {
                         targetHealth = maxHealth,
                         targetArmor = maxArmor > 0 and maxArmor or nil, -- Solo regenerar armadura si es mayor a 0
-                        amountPerTick = 1, -- Cantidad de vida/armadura por tick
-                        interval = 0.05,    -- Intervalo en segundos entre ticks
+                        amountPerTick = 2, -- Cantidad de vida/armadura por tick
+                        interval = 0.1,    -- Intervalo en segundos entre ticks
                         nextRegenTime = CurTime() + 0.05
                     }
                 end
