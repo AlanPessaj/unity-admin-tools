@@ -887,10 +887,13 @@ function TOOL.BuildCPanel(panel)
                     net.Start("gungame_options")
                         net.WriteUInt(math.floor(tonumber(GUNGAME.HealthEntry:GetValue()) or 100), 16)
                         net.WriteUInt(math.floor(tonumber(GUNGAME.ArmorEntry:GetValue()) or 100), 16)
+                        -- Send speed multiplier as a float (32-bit)
                         local speedMultiplier = tonumber(GUNGAME.SpeedEntry:GetValue()) or 1.0
-                        net.WriteFloat(math.max(0.1, math.min(10.0, speedMultiplier)))
+                        net.WriteFloat(math.max(0.1, math.min(10.0, speedMultiplier))) -- Clamp between 0.1 and 10.0
+                        -- Send scale as a float (32-bit)
                         local playerScale = tonumber(GUNGAME.ScaleEntry:GetValue()) or 1.0
-                        net.WriteFloat(math.max(0.1, math.min(5.0, playerScale)))
+                        net.WriteFloat(math.max(0.1, math.min(5.0, playerScale))) -- Clamp between 0.1 and 5.0
+                        -- Enviar el tiempo en segundos (multiplicado por 60) como entero
                         local timeInSeconds = math.floor(timeValue * 60)
                         net.WriteUInt(timeInSeconds >= 0 and timeInSeconds or 0, 16)
                     net.SendToServer()
