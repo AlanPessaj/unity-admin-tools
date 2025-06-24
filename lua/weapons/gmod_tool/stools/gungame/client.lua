@@ -325,6 +325,17 @@ net.Receive("gungame_event_stopped", function()
     if GUNGAME.SetButtonState then
         GUNGAME.SetButtonState(false)
     end
+    
+    -- Cerrar el panel del evento si está abierto
+    if IsValid(GUNGAME.EventPanel) then
+        GUNGAME.EventPanel:Remove()
+        GUNGAME.EventPanel = nil
+    end
+    
+    -- Limpiar el estado del evento
+    GUNGAME.EventActive = false
+    GUNGAME.EventTimeLeft = 0
+    GUNGAME.EventStartTime = 0
 end)
 
 -- Función para actualizar la lista de armas en la UI
