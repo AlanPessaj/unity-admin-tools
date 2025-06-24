@@ -150,11 +150,6 @@ net.Receive("gungame_options", function(len, ply)
             timeLeft = 0
         end
     end
-    
-    -- Debug message to verify the regeneration option was received
-    local regenTexts = {"Disabled", "Enabled", "Slow", "Confirmed Kill"}
-    DebugMessage(string.format("Game options updated - Health: %d, Armor: %d, Speed: %.1fx, Regen: %s", 
-        health, armor, speedMultiplier, regenTexts[regenOption + 1] or "Unknown"))
 end)
 
 -- Función para detener el evento de GunGame
