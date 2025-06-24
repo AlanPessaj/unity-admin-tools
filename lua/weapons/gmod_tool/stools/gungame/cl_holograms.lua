@@ -5,37 +5,29 @@ local HOLOGRAM_VERTICAL_LIMIT = 150 -- Límite vertical para la colisión
 local COLLISION_COOLDOWN = 0.5 -- Medio segundo entre comprobaciones de colisión
 local lastCollisionCheck = 0
 
--- Precargar el modelo
-util.PrecacheModel("models/items/healthkit.mdl")
-
 -- Recibir y crear un nuevo holograma
 net.Receive("GunGame_CreateHologram", function()
     local pos = net.ReadVector()
     local endTime = net.ReadFloat()
     local holoID = net.ReadString()
     
-    print("[GunGame] Creando holograma con ID:", holoID)
+    print("[GunGame] Creando esfera holográfica con ID:", holoID)
     
-    -- Crear el efecto de holograma
-    local ent = ClientsideModel("models/items/healthkit.mdl")
+    -- Crear una entidad vacía para la posición
+    local ent = ents.CreateClientProp()
     if not IsValid(ent) then 
-        print("[GunGame] Error al crear el modelo del holograma")
+        print("[GunGame] Error al crear la entidad del holograma")
         return 
     end
     
-    ent:SetPos(pos + Vector(0, 0, 30)) -- Elevar un poco el modelo
-    ent:SetModelScale(0.5) -- Tamaño más manejable
-    
-    -- Hacer el modelo semi-transparente y verde
-    local color = Color(100, 255, 100, 180)
-    ent:SetColor(color)
-    ent:SetRenderMode(RENDERMODE_TRANSCOLOR)
-    ent:DrawShadow(false)
-    ent:SetMaterial("models/shiny")
-    
-    -- Asegurarse de que el modelo se renderice
+    ent:SetPos(pos + Vector(0, 0, 5)) -- Elevar un poco la posición
     ent:Spawn()
     ent:Activate()
+    ent:SetNoDraw(true) -- No dibujar el modelo de la entidad
+    
+    -- Configurar propiedades visuales
+    local color = Color(100, 255, 100, 180)
+    local radius = 15 -- Tamaño de la esfera
     
     -- Añadir a la tabla de hologramas
     holograms[holoID] = {
@@ -96,6 +88,14 @@ hook.Add("Think", "UpdateGunGameHolograms", function()
         holo.ent:SetPos(newPos)
         holo.position = newPos
         
+        -- Dibujar la esfera
+        render.SetColorMaterial()
+        render.DrawWireframeSphere(holo.position, 15, 16, 16, color, true)
+        
+        -- Añadir un efecto de brillo
+        render.SetMaterial(Material("sprites/light_glow02_add"))
+        render.DrawSprite(holo.position, 30, 30, color)
+        
         -- Verificar colisiones con el jugador
         if checkCollisions and IsValid(localPlayer) and localPlayer:Alive() then
             local playerPos = localPlayer:GetPos()
@@ -110,7 +110,7 @@ hook.Add("Think", "UpdateGunGameHolograms", function()
                 net.SendToServer()
                 
                 -- Reproducir sonido de recolección
-                surface.PlaySound("items/ammo_pickup.wav")
+                surface.PlaySound("items/medshot4.wav")
                 
                 -- Solo procesar una colisión por frame
                 break
@@ -137,31 +137,6 @@ hook.Add("PostDrawTranslucentRenderables", "DrawHologramEffects", function()
         -- Dibujar la esfera del holograma
         render.SetColorMaterial()
         render.DrawSphere(pos, 25, 20, 20, Color(0, 255, 0, 100))
-        
-        -- Dibujar el área de colisión si estamos cerca
-        local playerPos = localPlayer:GetPos()
-        local distSqr = (pos - playerPos):LengthSqr()
-        local inRange = distSqr <= (HOLOGRAM_RADIUS * HOLOGRAM_RADIUS * 4)
-        
-        if inRange then
-            -- Dibujar un círculo en la base
-            local radius = HOLOGRAM_RADIUS
-            local segments = 32
-            local angleStep = (2 * math.pi) / segments
-            local lastPos
-            
-            for i = 0, segments do
-                local angle = i * angleStep
-                local x = pos.x + radius * math.cos(angle)
-                local y = pos.y + radius * math.sin(angle)
-                local nextPos = Vector(x, y, pos.z)
-                
-                if lastPos then
-                    render.DrawLine(lastPos, nextPos, Color(0, 255, 0, 50), false)
-                end
-                lastPos = nextPos
-            end
-        end
     end
 end)
 
