@@ -16,6 +16,7 @@ util.AddNetworkString("gungame_sync_weapons")
 util.AddNetworkString("gungame_debug_message")
 util.AddNetworkString("gungame_options")
 util.AddNetworkString("gungame_update_top_players")
+util.AddNetworkString("GunGame_CreateHologram")
 
 -- Server state
 local selecting = {}
@@ -809,6 +810,20 @@ hook.Add("PlayerDeath", "gungame_player_death", function(victim, inflictor, atta
             -- Reproducir sonido de kill para el atacante
             net.Start("gungame_play_kill_sound")
             net.Send(attacker)
+            
+            -- Solo crear holograma si la opción "Confirmed Kill" está activada (regenOption == 3)
+            local regenOption = GUNGAME.RegenOption or 0
+            if regenOption == 3 then
+                -- Crear un holograma en la posición de la víctima
+                local hologramPos = victim:GetPos() + Vector(0, 0, 50)
+                local endTime = CurTime() + 5
+                
+                -- Enviar al cliente del atacante para que cree el holograma
+                net.Start("GunGame_CreateHologram")
+                    net.WriteVector(hologramPos)
+                    net.WriteFloat(endTime)
+                net.Send(attacker)
+            end
         end
     end
 end)

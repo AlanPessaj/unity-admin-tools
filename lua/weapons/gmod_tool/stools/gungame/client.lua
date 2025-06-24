@@ -1008,3 +1008,78 @@ hook.Add("PostDrawTranslucentRenderables", "gungame_area_draw_points", function(
         end
     end
 end)
+
+-- Sistema de Hologramas para GunGame
+local holograms = {}
+
+-- Recibir y crear un nuevo holograma
+net.Receive("GunGame_CreateHologram", function()
+    local pos = net.ReadVector()
+    local endTime = net.ReadFloat()
+    
+    -- Crear una entidad simple para la posición
+    local ent = ents.CreateClientProp()
+    if not IsValid(ent) then return end
+    ent:SetPos(pos)
+    ent:Spawn()
+    ent:SetNoDraw(true) -- No dibujar el modelo
+    
+    -- Añadir a la tabla de hologramas
+    local id = tostring(ent:EntIndex())
+    holograms[id] = {
+        ent = ent,
+        endTime = endTime,
+        angle = 0,
+        startTime = CurTime()
+    }
+    
+    -- Eliminar después de 5 segundos
+    timer.Simple(5, function()
+        if IsValid(ent) then
+            ent:Remove()
+        end
+        holograms[id] = nil
+    end)
+end)
+
+-- Actualizar posición del efecto
+hook.Add("Think", "UpdateHolograms", function()
+    for id, holo in pairs(holograms) do
+        if not IsValid(holo.ent) then
+            holograms[id] = nil
+            continue
+        end
+        
+        -- Actualizar ángulo para efectos de rotación
+        holo.angle = (holo.angle + 0.5) % 360
+        
+        -- Hacer que flote ligeramente
+        local pos = holo.ent:GetPos()
+        pos.z = pos.z + math.sin(CurTime() * 2) * 0.1
+        holo.ent:SetPos(pos)
+    end
+end)
+
+-- Dibujar solo la esfera
+hook.Add("PostDrawTranslucentRenderables", "DrawHologramEffects", function()
+    for id, holo in pairs(holograms) do
+        if not IsValid(holo.ent) then continue end
+        
+        local pos = holo.ent:GetPos()
+        local alpha = 100 -- Menos transparencia (más opaco)
+        
+        -- Dibujar la esfera con menos transparencia
+        render.SetColorMaterial()
+        render.DrawSphere(pos, 25, 20, 20, Color(0, 255, 0, alpha)) -- Aumentado el tamaño a 25 y más segmentos para mejor apariencia
+    end
+end)
+
+-- Limpiar al desconectarse
+hook.Add("OnReloaded", "CleanupHolograms", function()
+    for id, holo in pairs(holograms) do
+        if IsValid(holo.ent) then
+            holo.ent:Remove()
+        end
+    end
+    holograms = {}
+end)
