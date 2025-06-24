@@ -33,13 +33,13 @@ net.Receive("GunGame_CreateHologram", function()
     holograms[holoID] = {
         ent = ent,
         endTime = endTime,
-        angle = 0,
         startTime = CurTime(),
         position = Vector(pos),
         id = holoID,
         bobOffset = 0,
-        bobSpeed = math.random(1, 3),
-        bobHeight = math.random(5, 10) / 10
+        bobSpeed = math.random(15, 22) / 10,
+        bobHeight = math.random(15, 25) / 10,
+        baseZ = pos.z
     }
     
     -- Eliminar después de 5 segundos
@@ -68,33 +68,18 @@ hook.Add("Think", "UpdateGunGameHolograms", function()
             continue
         end
         
-        -- Rotación suave
-        holo.angle = (holo.angle + FrameTime() * 20) % 360
-        holo.ent:SetAngles(Angle(0, holo.angle, 0))
-        
-        -- Movimiento de flotación más suave
         local time = currentTime * holo.bobSpeed
-        local bob = math.sin(time) * holo.bobHeight
-        
-        -- Posición base
+        local bob = math.sin(time) * (holo.bobHeight * 3)
         local pos = holo.ent:GetPos()
-        
-        -- Aplicar movimiento de flotación
-        local newZ = pos.z + (bob - holo.bobOffset) * 0.1
-        holo.bobOffset = bob
-        
-        -- Actualizar posición
-        local newPos = Vector(pos.x, pos.y, newZ)
+        local newZ = holo.baseZ + bob
+        local newPos = Vector(holo.position.x, holo.position.y, newZ)
         holo.ent:SetPos(newPos)
         holo.position = newPos
-        
-        -- Dibujar la esfera
         render.SetColorMaterial()
         render.DrawWireframeSphere(holo.position, 15, 16, 16, color, true)
-        
-        -- Añadir un efecto de brillo
+        local pulse = 1 + (math.sin(CurTime() * 2) * 0.1)
         render.SetMaterial(Material("sprites/light_glow02_add"))
-        render.DrawSprite(holo.position, 30, 30, color)
+        render.DrawSprite(holo.position, 30 * pulse, 30 * pulse, color)
         
         -- Verificar colisiones con el jugador
         if checkCollisions and IsValid(localPlayer) and localPlayer:Alive() then
