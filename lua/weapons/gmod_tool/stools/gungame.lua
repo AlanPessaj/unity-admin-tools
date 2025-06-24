@@ -8,6 +8,7 @@ TOOL.ConfigName = ""
 -- Include shared, client, and server files
 AddCSLuaFile("gungame/shared.lua")
 AddCSLuaFile("gungame/client.lua")
+AddCSLuaFile("gungame/cl_holograms.lua")
 include("gungame/shared.lua")
 
 -- Include server-side code
@@ -18,4 +19,5 @@ end
 -- Include client-side code
 if CLIENT then
     include("gungame/client.lua")
+    include("gungame/cl_holograms.lua")
 end
