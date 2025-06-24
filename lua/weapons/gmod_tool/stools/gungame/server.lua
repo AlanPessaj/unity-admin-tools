@@ -19,6 +19,7 @@ util.AddNetworkString("gungame_update_top_players")
 util.AddNetworkString("GunGame_CreateHologram")
 util.AddNetworkString("GunGame_PlayerTouchedHologram")
 util.AddNetworkString("GunGame_RemoveHologram")
+util.AddNetworkString("gungame_play_pickup_sound")
 
 -- Server state
 local selecting = {}
@@ -728,9 +729,28 @@ hook.Add("PlayerSpawn", "gungame_respawn_after_death", function(ply)
     end)
 end)
 
+-- Función para limpiar los hologramas de un jugador
+local function ClearPlayerHolograms(steamid64)
+    if not gungame_players[steamid64] or not gungame_players[steamid64].holograms then return end
+    
+    -- Notificar al cliente para que elimine los hologramas
+    for holoID, _ in pairs(gungame_players[steamid64].holograms) do
+        net.Start("GunGame_RemoveHologram")
+            net.WriteString(holoID)
+        net.Send(gungame_players[steamid64].player)
+    end
+    
+    -- Limpiar la tabla de hologramas del jugador
+    gungame_players[steamid64].holograms = {}
+end
+
 -- Hook para manejar las muertes de jugadores
 hook.Add("PlayerDeath", "gungame_player_death", function(victim, inflictor, attacker)
     if not gungame_event_active then return end
+    
+    -- Limpiar los hologramas del jugador que murió
+    local victim_steamid64 = victim:SteamID64()
+    ClearPlayerHolograms(victim_steamid64)
     
     -- Verificar si el atacante es un jugador válido y no se está suicidando
     if IsValid(attacker) and attacker:IsPlayer() and attacker ~= victim then
@@ -872,10 +892,17 @@ net.Receive("GunGame_PlayerTouchedHologram", function(_, ply)
     
     -- Verificar si el holograma existe
     if gungame_players[steamid64].holograms[holoID] then
-        -- Eliminar el holograma
+        -- Restaurar vida y escudo al máximo
+        ply:SetHealth(GUNGAME.PlayerHealth or 100)
+        ply:SetArmor(GUNGAME.PlayerArmor or 0)
+        
+        -- Reproducir sonido de recolección de vida
+        net.Start("gungame_play_pickup_sound")
+            net.WriteString("items/healthvial.wav")
+        net.Send(ply)
+        
         gungame_players[steamid64].holograms[holoID] = nil
         
-        -- Notificar al cliente para que elimine el holograma
         net.Start("GunGame_RemoveHologram")
             net.WriteString(holoID)
         net.Send(ply)
