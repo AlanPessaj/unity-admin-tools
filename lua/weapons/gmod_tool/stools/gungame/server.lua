@@ -31,6 +31,7 @@ local has_winner = false
 local event_start_time = 0
 local time_limit_timer = nil
 local top_players_timer = nil
+local regenerating_players = {}
 
 -- Función para enviar mensajes de depuración al iniciador del evento
 local function DebugMessage(msg)
@@ -41,6 +42,72 @@ local function DebugMessage(msg)
     end
     print("[GunGame Debug] " .. msg)
 end
+
+-- Función para detener la regeneración de un jugador
+local function StopPlayerRegeneration(ply)
+    if IsValid(ply) and regenerating_players[ply:SteamID64()] then
+        regenerating_players[ply:SteamID64()] = nil
+    end
+end
+
+-- Hook para manejar la regeneración progresiva
+hook.Add("Think", "GunGameProgressiveRegen", function()
+    if not gungame_event_active or (GUNGAME.RegenOption or 0) ~= 2 then return end
+    
+    local currentTime = CurTime()
+    
+    for steamid64, regenData in pairs(regenerating_players) do
+        local ply = player.GetBySteamID64(steamid64)
+        
+        if not IsValid(ply) or not ply:Alive() then
+            regenerating_players[steamid64] = nil
+            continue
+        end
+        
+        -- Verificar si es momento de la próxima regeneración
+        if currentTime >= regenData.nextRegenTime then
+            -- Regenerar vida
+            local newHealth = math.min(ply:Health() + regenData.amountPerTick, regenData.targetHealth)
+            ply:SetHealth(newHealth)
+            
+            -- Regenerar armadura si es necesario
+            if regenData.targetArmor then
+                local newArmor = math.min((ply:Armor() or 0) + regenData.amountPerTick, regenData.targetArmor)
+                ply:SetArmor(newArmor)
+            end
+            
+            -- Verificar si la regeneración ha terminado
+            if newHealth >= regenData.targetHealth and 
+               (not regenData.targetArmor or ply:Armor() >= regenData.targetArmor) then
+                regenerating_players[steamid64] = nil
+            else
+                regenerating_players[steamid64].nextRegenTime = currentTime + regenData.interval
+            end
+        end
+    end
+end)
+
+-- Detener la regeneración cuando un jugador recibe daño
+hook.Add("EntityTakeDamage", "StopRegenOnDamage", function(target, dmg)
+    if not gungame_event_active or (GUNGAME.RegenOption or 0) ~= 2 then return end
+    
+    -- Verificar si el objetivo es un jugador y está en la lista de regeneración
+    if target:IsPlayer() and regenerating_players[target:SteamID64()] then
+        -- Verificar si el daño es significativo (mayor a 0)
+        if dmg:GetDamage() > 0 then
+            StopPlayerRegeneration(target)
+        end
+    end
+end)
+
+-- Limpiar la regeneración cuando un jugador muere o se desconecta
+hook.Add("PlayerDeath", "StopRegenOnDeath", function(ply)
+    StopPlayerRegeneration(ply)
+end)
+
+hook.Add("PlayerDisconnected", "CleanupRegenOnDisconnect", function(ply)
+    StopPlayerRegeneration(ply)
+end)
 
 -- Función para notificar a los clientes sobre el estado del evento
 local function UpdateEventStatus(active)
@@ -669,11 +736,33 @@ hook.Add("PlayerDeath", "gungame_player_death", function(victim, inflictor, atta
             -- Incrementar las kills del jugador
             gungame_players[attacker_steamid64].kills = gungame_players[attacker_steamid64].kills + 1
             
-            if GUNGAME.RegenOption == 1 then
+            -- Manejar la regeneración según la opción seleccionada
+            local regenOption = GUNGAME.RegenOption or 0
+            if regenOption == 1 then
+                -- Regeneración instantánea
                 attacker:SetHealth(GUNGAME.PlayerHealth)
                 attacker:SetArmor(GUNGAME.PlayerArmor)
-            else if GUNGAME.RegenOption == 2 then
-
+            elseif regenOption == 2 and attacker:Alive() then
+                -- Detener cualquier regeneración en curso
+                StopPlayerRegeneration(attacker)
+                
+                -- Configurar regeneración progresiva
+                local currentHealth = attacker:Health()
+                local maxHealth = GUNGAME.PlayerHealth
+                local currentArmor = attacker:Armor() or 0
+                local maxArmor = GUNGAME.PlayerArmor or 0
+                local healthToRegen = maxHealth - currentHealth
+                local armorToRegen = maxArmor - currentArmor
+                
+                if healthToRegen > 0 or armorToRegen > 0 then
+                    regenerating_players[attacker_steamid64] = {
+                        targetHealth = maxHealth,
+                        targetArmor = maxArmor > 0 and maxArmor or nil, -- Solo regenerar armadura si es mayor a 0
+                        amountPerTick = 1, -- Cantidad de vida/armadura por tick
+                        interval = 0.05,    -- Intervalo en segundos entre ticks
+                        nextRegenTime = CurTime() + 0.05
+                    }
+                end
             end
             -- Verificar si el jugador sube de nivel
             if gungame_players[attacker_steamid64].kills >= 1 then
