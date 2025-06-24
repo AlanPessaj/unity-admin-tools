@@ -11,7 +11,7 @@ GUNGAME.EventPanel = nil
 GUNGAME.EventActive = false
 GUNGAME.EventTimeLeft = 0
 GUNGAME.EventStartTime = 0
-GUNGAME.TopPlayers = {} -- Almacena el top de jugadores
+GUNGAME.TopPlayers = {}
 local weaponListPanel
 
 -- Language strings
@@ -756,6 +756,30 @@ function TOOL.BuildCPanel(panel)
     
     -- Store the speed entry for later use
     GUNGAME.SpeedEntry = speedEntry
+    
+    -- Regeneration combobox
+    local regenContainer = vgui.Create("DPanel", panel)
+    regenContainer:Dock(TOP)
+    regenContainer:DockMargin(0, 0, 0, 8)
+    regenContainer:SetTall(28)
+    regenContainer:SetPaintBackground(false)
+    
+    local regenLabel = vgui.Create("DLabel", regenContainer)
+    regenLabel:Dock(LEFT)
+    regenLabel:SetWide(100)
+    regenLabel:SetText("Regeneration:")
+    regenLabel:SetTextColor(Color(40, 40, 40))
+    
+    local regenCombo = vgui.Create("DComboBox", regenContainer)
+    regenCombo:Dock(FILL)
+    regenCombo:SetValue("Disabled")
+    regenCombo:AddChoice("Enabled")
+    regenCombo:AddChoice("Disabled")
+    regenCombo:AddChoice("Slow")
+    regenCombo:AddChoice("Confirmed Kill")
+    
+    -- Store the regeneration combobox for later use
+    GUNGAME.RegenCombo = regenCombo
 
     -- Event control button
     GUNGAME.EventActive = false
@@ -868,6 +892,18 @@ function TOOL.BuildCPanel(panel)
                         net.WriteFloat(math.max(0.1, math.min(10.0, speedMultiplier)))
                         local timeInSeconds = math.floor(timeValue * 60)
                         net.WriteUInt(timeInSeconds >= 0 and timeInSeconds or 0, 16)
+                        
+                        -- Send regeneration option (0: Disabled, 1: Enabled, 2: Slow, 3: Confirmed Kill)
+                        local regenOption = 0
+                        local regenText = GUNGAME.RegenCombo:GetValue()
+                        if regenText == "Enabled" then
+                            regenOption = 1
+                        elseif regenText == "Slow" then
+                            regenOption = 2
+                        elseif regenText == "Confirmed Kill" then
+                            regenOption = 3
+                        end
+                        net.WriteUInt(regenOption, 2) -- Using 2 bits (0-3)
                     net.SendToServer()
                     
                     -- Then start the event

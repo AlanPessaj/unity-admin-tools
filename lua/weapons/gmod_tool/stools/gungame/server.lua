@@ -62,11 +62,14 @@ net.Receive("gungame_options", function(len, ply)
     local armor = net.ReadUInt(16)
     local speedMultiplier = net.ReadFloat()
     local timeLimit = net.ReadUInt(16)
+    local regenOption = net.ReadUInt(2) -- Read regeneration option (0-3)
     
     -- Store the options in the global table
     GUNGAME.PlayerHealth = health
     GUNGAME.PlayerArmor = armor
     GUNGAME.PlayerSpeedMultiplier = math.max(0.1, math.min(10.0, speedMultiplier))
+    GUNGAME.RegenOption = regenOption -- Store regeneration option (0: Disabled, 1: Enabled, 2: Slow, 3: Confirmed Kill)
+    
     if timeLimit < 0 then
         GUNGAME.TimeLimit = -1
     else
@@ -76,6 +79,11 @@ net.Receive("gungame_options", function(len, ply)
             timeLeft = 0
         end
     end
+    
+    -- Debug message to verify the regeneration option was received
+    local regenTexts = {"Disabled", "Enabled", "Slow", "Confirmed Kill"}
+    DebugMessage(string.format("Game options updated - Health: %d, Armor: %d, Speed: %.1fx, Regen: %s", 
+        health, armor, speedMultiplier, regenTexts[regenOption + 1] or "Unknown"))
 end)
 
 -- Función para detener el evento de GunGame
@@ -661,6 +669,12 @@ hook.Add("PlayerDeath", "gungame_player_death", function(victim, inflictor, atta
             -- Incrementar las kills del jugador
             gungame_players[attacker_steamid64].kills = gungame_players[attacker_steamid64].kills + 1
             
+            if GUNGAME.RegenOption == 1 then
+                attacker:SetHealth(GUNGAME.PlayerHealth)
+                attacker:SetArmor(GUNGAME.PlayerArmor)
+            else if GUNGAME.RegenOption == 2 then
+
+            end
             -- Verificar si el jugador sube de nivel
             if gungame_players[attacker_steamid64].kills >= 1 then
                 gungame_players[attacker_steamid64].kills = 0
