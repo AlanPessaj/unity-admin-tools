@@ -17,6 +17,8 @@ util.AddNetworkString("gungame_debug_message")
 util.AddNetworkString("gungame_options")
 util.AddNetworkString("gungame_update_top_players")
 util.AddNetworkString("GunGame_CreateHologram")
+util.AddNetworkString("GunGame_PlayerTouchedHologram")
+util.AddNetworkString("GunGame_RemoveHologram")
 
 -- Server state
 local selecting = {}
@@ -199,9 +201,12 @@ local function HandlePlayerWin(ply)
     has_winner = true
     local winnerName = ply:Nick()
     
-    -- Notificar a todos los jugadores
-    for _, v in ipairs(player.GetAll()) do
-        v:ChatPrint("[GunGame] ¡" .. winnerName .. " ha ganado el GunGame!")
+    -- Notificar a los jugadores del evento
+    for steamid64, _ in pairs(gungame_players) do
+        local ply = player.GetBySteamID64(steamid64)
+        if IsValid(ply) then
+            ply:ChatPrint("[GunGame] ¡" .. winnerName .. " ha ganado el GunGame!")
+        end
     end
     
     -- Reproducir sonido solo para el ganador
@@ -817,14 +822,63 @@ hook.Add("PlayerDeath", "gungame_player_death", function(victim, inflictor, atta
                 -- Crear un holograma en la posición de la víctima
                 local hologramPos = victim:GetPos() + Vector(0, 0, 50)
                 local endTime = CurTime() + 5
+                local holoID = "holo_" .. tostring(CurTime()) .. "_" .. attacker:SteamID64()
+                
+                -- Inicializar la tabla de hologramas si no existe
+                if not gungame_players[attacker_steamid64].holograms then
+                    gungame_players[attacker_steamid64].holograms = {}
+                end
+                
+                -- Registrar el holograma
+                gungame_players[attacker_steamid64].holograms[holoID] = {
+                    pos = hologramPos,
+                    time = CurTime()
+                }
                 
                 -- Enviar al cliente del atacante para que cree el holograma
                 net.Start("GunGame_CreateHologram")
                     net.WriteVector(hologramPos)
                     net.WriteFloat(endTime)
+                    net.WriteString(holoID) -- Enviar el ID al cliente
                 net.Send(attacker)
+                
+                -- Limpiar después de 5 segundos
+                timer.Simple(5, function()
+                    if gungame_players[attacker_steamid64] and gungame_players[attacker_steamid64].holograms then
+                        if gungame_players[attacker_steamid64].holograms[holoID] then
+                            gungame_players[attacker_steamid64].holograms[holoID] = nil
+                        end
+                    end
+                end)
             end
         end
+    end
+end)
+
+-- Manejar cuando un jugador toca un holograma
+net.Receive("GunGame_PlayerTouchedHologram", function(_, ply)
+    if not IsValid(ply) then return end
+    
+    local holoID = net.ReadString()
+    local steamid64 = ply:SteamID64()
+    
+    -- Verificar que el jugador esté en el evento y tenga hologramas
+    if not gungame_players[steamid64] then return end
+    
+    -- Inicializar la tabla de hologramas si no existe
+    if not gungame_players[steamid64].holograms then
+        gungame_players[steamid64].holograms = {}
+    end
+    
+    -- Verificar si el holograma existe
+    if gungame_players[steamid64].holograms[holoID] then
+        -- Eliminar el holograma
+        gungame_players[steamid64].holograms[holoID] = nil
+        
+        -- Notificar al cliente para que elimine el holograma
+        net.Start("GunGame_RemoveHologram")
+            net.WriteString(holoID)
+        net.Send(ply)
     end
 end)
 
