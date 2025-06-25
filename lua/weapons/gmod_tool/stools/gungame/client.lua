@@ -44,6 +44,24 @@ net.Receive("gungame_play_kill_sound", function()
     end
 end)
 
+-- Handle player won notification with prize
+net.Receive("gungame_player_won", function()
+    local winner = net.ReadEntity()
+    local prizeAmount = net.ReadUInt(32)
+    
+    if not IsValid(winner) or not prizeAmount or prizeAmount <= 0 or winner == LocalPlayer() then return end
+    
+    -- Show confirmation dialog to the event starter
+    Derma_Query(
+        "Do you want to give the prize of " .. prizeAmount .. " to the winner " .. winner:Nick() .. "?",
+        "Confirmación de Premio",
+        "Yes", function()
+            notification.AddLegacy("Prize of " .. prizeAmount .. " given to " .. winner:Nick(), NOTIFY_HINT, 5)
+        end,
+        "No"
+    )
+end)
+
 -- Reproducir sonido de cuenta regresiva
 net.Receive("gungame_play_countdown_sound", function()
     local countdownSound = "gungame/countdown/countdown_sound.mp3"

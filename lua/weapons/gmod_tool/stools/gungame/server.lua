@@ -35,6 +35,7 @@ util.AddNetworkString("GunGame_CreateHologram")
 util.AddNetworkString("GunGame_PlayerTouchedHologram")
 util.AddNetworkString("GunGame_RemoveHologram")
 util.AddNetworkString("gungame_play_pickup_sound")
+util.AddNetworkString("gungame_player_won")
 
 -- Server state
 local selecting = {}
@@ -232,6 +233,13 @@ local function HandlePlayerWin(ply)
     -- Detener el evento después de 5 segundos
     timer.Simple(5, function()
         GUNGAME.StopEvent()
+        -- Si hay un premio y hay un iniciador del evento, notificarle
+        if GUNGAME.PrizeAmount and GUNGAME.PrizeAmount > 0 and IsValid(event_starter) then
+            net.Start("gungame_player_won")
+                net.WriteEntity(ply)
+                net.WriteUInt(GUNGAME.PrizeAmount, 32)
+            net.Send(event_starter)
+        end
     end)
 end
 
