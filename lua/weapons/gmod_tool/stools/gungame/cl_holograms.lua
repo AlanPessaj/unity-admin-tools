@@ -1,8 +1,8 @@
 -- Sistema de Hologramas para GunGame
 local holograms = {}
-local HOLOGRAM_RADIUS = 100 -- Radio de colisión del holograma
-local HOLOGRAM_VERTICAL_LIMIT = 150 -- Límite vertical para la colisión
-local COLLISION_COOLDOWN = 0.5 -- Medio segundo entre comprobaciones de colisión
+local HOLOGRAM_RADIUS = 75 -- Radio de colisión del holograma
+local HOLOGRAM_VERTICAL_LIMIT = 120 -- Límite vertical para la colisión
+local COLLISION_COOLDOWN = 0.3 -- Tiempo entre comprobaciones de colisión
 local lastCollisionCheck = 0
 
 -- Recibir y crear un nuevo holograma
@@ -76,10 +76,10 @@ hook.Add("Think", "UpdateGunGameHolograms", function()
         holo.ent:SetPos(newPos)
         holo.position = newPos
         render.SetColorMaterial()
-        render.DrawWireframeSphere(holo.position, 15, 16, 16, color, true)
-        local pulse = 1 + (math.sin(CurTime() * 2) * 0.1)
+        render.DrawWireframeSphere(holo.position, 12, 12, 12, color, true)
+        local pulse = 0.8 + (math.sin(CurTime() * 2) * 0.2)
         render.SetMaterial(Material("sprites/light_glow02_add"))
-        render.DrawSprite(holo.position, 30 * pulse, 30 * pulse, color)
+        render.DrawSprite(holo.position, 24 * pulse, 24 * pulse, color)
         
         -- Verificar colisiones con el jugador
         if checkCollisions and IsValid(localPlayer) and localPlayer:Alive() then
