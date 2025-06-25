@@ -2,6 +2,21 @@ AddCSLuaFile("shared.lua")
 AddCSLuaFile("client.lua")
 include("shared.lua")
 
+-- Función para verificar si el jugador tiene permisos
+local function HasGunGameAccess(ply)
+    if not IsValid(ply) or not ply.GetUserGroup then return false end
+    
+    local allowedRanks = {
+        ["superadmin"] = true,
+        ["moderadorelite"] = true,
+        ["moderadorsenior"] = true,
+        ["directormods"] = true,
+        ["ejecutivo"] = true
+    }
+    
+    return ply:IsSuperAdmin() or (allowedRanks[ply:GetUserGroup():lower()] == true)
+end
+
 -- Network strings
 util.AddNetworkString("gungame_area_start")
 util.AddNetworkString("gungame_area_clear")
@@ -127,7 +142,10 @@ end
 
 -- Network receive handler for game options
 net.Receive("gungame_options", function(len, ply)
-    if not ply:IsAdmin() then return end
+    if not HasGunGameAccess(ply) then 
+        ply:ChatPrint("Error: No tienes permisos para modificar las opciones.")
+        return 
+    end
     
     local health = net.ReadUInt(16)
     local armor = net.ReadUInt(16)
@@ -282,6 +300,10 @@ net.Receive("gungame_area_start", function(_, ply)
 end)
 
 net.Receive("gungame_area_clear", function(_, ply)
+    if not HasGunGameAccess(ply) then 
+        ply:ChatPrint("Error: No tienes permisos para limpiar el área.")
+        return 
+    end
     if gungame_event_active then return end
     
     -- Clear points for this player
@@ -310,8 +332,16 @@ local function GiveWeaponByKillCount(ply, killCount)
 end
 
 net.Receive("gungame_start_event", function(_, ply)
+    if not HasGunGameAccess(ply) then 
+        ply:ChatPrint("Error: No tienes permisos para iniciar el evento.")
+        return 
+    end
+    
     local area = points[ply]
-    if not area or #area < GUNGAME.Config.MinPoints then return end
+    if not area or #area < GUNGAME.Config.MinPoints then 
+        ply:ChatPrint("Error: No hay suficientes puntos definidos para el área.")
+        return 
+    end
 
     gungame_area_points = area
     gungame_area_center = GUNGAME.CalculateCenter(area)
@@ -557,6 +587,10 @@ net.Receive("gungame_start_event", function(_, ply)
 end)
 
 net.Receive("gungame_stop_event", function(_, ply)
+    if not HasGunGameAccess(ply) then 
+        ply:ChatPrint("Error: No tienes permisos para detener el evento.")
+        return 
+    end
     for steamid64, data in pairs(gungame_players) do
         if IsValid(data.player) then
             data.player:ChatPrint("[GunGame] ¡El evento ha sido detenido!")
@@ -962,7 +996,10 @@ end
 
 -- Spawn points network handlers
 net.Receive("gungame_add_spawnpoint", function(_, ply)
-    if gungame_event_active then return end
+    if not HasGunGameAccess(ply) then 
+        ply:ChatPrint("Error: No tienes permisos para añadir puntos de aparición.")
+        return 
+    end
     
     -- Leer la posición y ángulo enviados por el cliente
     local pos = net.ReadVector()
@@ -985,7 +1022,10 @@ net.Receive("gungame_add_spawnpoint", function(_, ply)
 end)
 
 net.Receive("gungame_clear_spawnpoints", function(_, ply)
-    if gungame_event_active then return end
+    if not HasGunGameAccess(ply) then 
+        ply:ChatPrint("Error: No tienes permisos para limpiar los puntos de aparición.")
+        return 
+    end
     
     spawnPoints = {}
     

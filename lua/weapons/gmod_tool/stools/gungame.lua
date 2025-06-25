@@ -6,18 +6,69 @@ TOOL.Command = nil
 TOOL.ConfigName = ""
 
 -- Include shared, client, and server files
-AddCSLuaFile("gungame/shared.lua")
-AddCSLuaFile("gungame/client.lua")
-AddCSLuaFile("gungame/cl_holograms.lua")
-include("gungame/shared.lua")
+local toolDir = "weapons/gmod_tool/stools/gungame/"
+AddCSLuaFile(toolDir.."shared.lua")
+AddCSLuaFile(toolDir.."client.lua")
+AddCSLuaFile(toolDir.."cl_holograms.lua")
+include(toolDir.."shared.lua")
+
+-- Función para verificar si el jugador tiene permisos
+local function HasGunGameAccess(ply)
+    if not IsValid(ply) or not ply.GetUserGroup then return false end
+    
+    -- Lista de rangos que tienen acceso
+    local allowedRanks = {
+        ["superadmin"] = true,
+        ["moderadorelite"] = true,
+        ["moderadorsenior"] = true,
+        ["directormods"] = true,
+        ["ejecutivo"] = true
+    }
+    
+    -- Verificar si el jugador tiene uno de los rangos permitidos
+    return ply:IsSuperAdmin() or (allowedRanks[ply:GetUserGroup():lower()] == true)
+end
+
+-- Verificar permisos para usar la herramienta
+function TOOL:CanTool(ply, trace)
+    return HasGunGameAccess(ply)
+end
+
+if CLIENT then
+    function TOOL:DrawHUD()
+        if not HasGunGameAccess(LocalPlayer()) then return end
+        if self.BaseClass then
+            self.BaseClass.DrawHUD(self)
+        end
+    end
+end
+
+function TOOL.BuildCPanel(panel)
+    if not HasGunGameAccess(LocalPlayer()) then
+        panel:AddControl("Label", {Text = "Acceso denegado."})
+        return
+    end
+    
+    -- Cargar el código del cliente
+    include(toolDir.."cl_holograms.lua")
+    local CreateGunGameUI = include(toolDir.."client.lua")
+    
+    if CreateGunGameUI then
+        -- Inicializar el panel
+        if panel.SetName then panel:SetName("") end
+        
+        GUNGAME = GUNGAME or {}
+        GUNGAME.AreaPanel = panel
+        panel:DockPadding(8, 8, 8, 8)
+        
+        -- Crear la interfaz de usuario
+        CreateGunGameUI(panel)
+    else
+        panel:AddControl("Label", {Text = "Error al cargar la interfaz de usuario."})
+    end
+end
 
 -- Include server-side code
 if SERVER then
-    include("gungame/server.lua")
-end
-
--- Include client-side code
-if CLIENT then
-    include("gungame/client.lua")
-    include("gungame/cl_holograms.lua")
+    include(toolDir.."server.lua")
 end

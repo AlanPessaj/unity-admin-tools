@@ -167,9 +167,9 @@ function GUNGAME.UpdateTopPlayersPanel()
     GUNGAME.EventPanel.TopPlayersPanel = topPanel
     
     -- Ajustar tamaño del panel principal si es necesario
-    local baseHeight = 60 -- Altura base (título + margen)
+    local baseHeight = 60
     if IsValid(GUNGAME.EventPanel.TimeLeft) and GUNGAME.EventPanel.TimeLeft:IsVisible() then
-        baseHeight = 70 -- Reducido de 90 a 70 para hacer el panel más compacto
+        baseHeight = 70
     end
     local totalHeight = baseHeight + topPanel:GetTall() + 10
     GUNGAME.EventPanel:SetSize(200, totalHeight)
@@ -412,13 +412,10 @@ net.Receive("gungame_update_top_players", function()
     end
 end)
 
--- Tool panel creation
-function TOOL.BuildCPanel(panel)
-    if panel.SetName then panel:SetName("") end
-    
-    GUNGAME.AreaPanel = panel
-    panel:DockPadding(8, 8, 8, 8)
-    
+-- La función BuildCPanel ha sido movida al archivo principal de la herramienta
+
+-- Esta función se usará para construir la interfaz de usuario
+local function CreateGunGameUI(panel)
     -- Header
     local headerPanel = vgui.Create("DPanel", panel)
     headerPanel:Dock(TOP)
@@ -1020,4 +1017,4 @@ hook.Add("PostDrawTranslucentRenderables", "gungame_area_draw_points", function(
     end
 end)
 
--- El código de hologramas ha sido movido a cl_holograms.lua
+return CreateGunGameUI
