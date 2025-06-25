@@ -36,6 +36,7 @@ util.AddNetworkString("GunGame_PlayerTouchedHologram")
 util.AddNetworkString("GunGame_RemoveHologram")
 util.AddNetworkString("gungame_play_pickup_sound")
 util.AddNetworkString("gungame_player_won")
+util.AddNetworkString("gungame_transfer_prize")
 
 -- Server state
 local selecting = {}
@@ -556,7 +557,7 @@ net.Receive("gungame_start_event", function(_, ply)
                 end
                 
                 -- Detener el evento
-                GUNGAME.StopEvent()
+                RunConsoleCommand("gungame_stop_event")
             end
         end)
         
@@ -1108,4 +1109,39 @@ hook.Add("PlayerInitialSpawn", "GunGame_SendSpawnPoints", function(ply)
             net.Send(ply)
         end
     end)
+end)
+
+-- Handle prize money transfer
+net.Receive("gungame_transfer_prize", function(_, ply)
+    if not IsValid(ply) or not ply:IsPlayer() then return end
+    
+    -- Only the event starter can transfer money
+    if ply ~= event_starter then return end
+    
+    local winner = net.ReadEntity()
+    local prizeAmount = net.ReadUInt(32)
+    
+    -- Validate the winner and amount
+    if not IsValid(winner) or not winner:IsPlayer() or prizeAmount <= 0 then return end
+    
+    -- Check if the event starter has enough money
+    local starterMoney = ply:getDarkRPVar("money") or 0
+    if starterMoney < prizeAmount then
+        DarkRP.notify(ply, 1, 5, "You don't have enough money for this prize.")
+        return
+    end
+    
+    -- Take money from the event starter
+    ply:addMoney(-prizeAmount)
+    
+    -- Give money to the winner
+    winner:addMoney(prizeAmount)
+    
+    -- Notify both players
+    DarkRP.notify(ply, 3, 5, "You have given $" .. prizeAmount .. " to " .. winner:Nick())
+    DarkRP.notify(winner, 3, 5, "You have received $" .. prizeAmount .. " for winning the GunGame!")
+    
+    -- Log the transaction
+    print(string.format("[GunGame] %s (%s) gave $%d to %s (%s) as a prize",
+        ply:Nick(), ply:SteamID(), prizeAmount, winner:Nick(), winner:SteamID()))
 end)

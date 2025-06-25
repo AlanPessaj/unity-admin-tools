@@ -48,18 +48,36 @@ end)
 net.Receive("gungame_player_won", function()
     local winner = net.ReadEntity()
     local prizeAmount = net.ReadUInt(32)
+    local event_starter_money = LocalPlayer():getDarkRPVar("money") or 0
     
     if not IsValid(winner) or not prizeAmount or prizeAmount <= 0 or winner == LocalPlayer() then return end
     
-    -- Show confirmation dialog to the event starter
-    Derma_Query(
-        "Do you want to give the prize of " .. prizeAmount .. " to the winner " .. winner:Nick() .. "?",
-        "Confirmación de Premio",
-        "Yes", function()
-            notification.AddLegacy("Prize of " .. prizeAmount .. " given to " .. winner:Nick(), NOTIFY_HINT, 5)
-        end,
-        "No"
-    )
+
+    if event_starter_money < prizeAmount then
+        Derma_Query(
+            "You don't have enough money for this prize $" .. prizeAmount .. "\n Do you want to give the rest of your money to the winner " .. winner:Nick() .. "?",
+            "Confirmation of Prize",
+            "Yes", function()
+                net.Start("gungame_transfer_prize")
+                    net.WriteEntity(winner)
+                    net.WriteUInt(event_starter_money, 32)
+                net.SendToServer()
+            end,
+            "No"
+        )
+    else
+        Derma_Query(
+            "Do you want to give the prize of $" .. prizeAmount .. " to the winner " .. winner:Nick() .. "?",
+            "Confirmation of Prize",
+            "Yes", function()
+                net.Start("gungame_transfer_prize")
+                    net.WriteEntity(winner)
+                    net.WriteUInt(prizeAmount, 32)
+                net.SendToServer()
+            end,
+            "No"
+        )
+    end
 end)
 
 -- Reproducir sonido de cuenta regresiva
