@@ -55,7 +55,7 @@ net.Receive("gungame_player_won", function()
 
     if event_starter_money < prizeAmount then
         Derma_Query(
-            "You don't have enough money for this prize $" .. prizeAmount .. "\n Do you want to give the rest of your money to the winner " .. winner:Nick() .. "?",
+            "You don't have enough money to pay the prize $" .. prizeAmount .. "\n Do you want to give the rest of your money to the winner " .. winner:Nick() .. "?",
             "Confirmation of Prize",
             "Yes", function()
                 net.Start("gungame_transfer_prize")
