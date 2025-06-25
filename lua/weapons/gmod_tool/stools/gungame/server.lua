@@ -152,12 +152,14 @@ net.Receive("gungame_options", function(len, ply)
     local speedMultiplier = net.ReadFloat()
     local timeLimit = net.ReadUInt(16)
     local regenOption = net.ReadUInt(2) -- Read regeneration option (0-3)
+    local prizeAmount = net.ReadUInt(32) -- Read prize amount
     
     -- Store the options in the global table
     GUNGAME.PlayerHealth = health
     GUNGAME.PlayerArmor = armor
     GUNGAME.PlayerSpeedMultiplier = math.max(0.1, math.min(10.0, speedMultiplier))
     GUNGAME.RegenOption = regenOption -- Store regeneration option (0: Disabled, 1: Enabled, 2: Slow, 3: Confirmed Kill)
+    GUNGAME.PrizeAmount = prizeAmount -- Store the prize amount
     
     if timeLimit < 0 then
         GUNGAME.TimeLimit = -1

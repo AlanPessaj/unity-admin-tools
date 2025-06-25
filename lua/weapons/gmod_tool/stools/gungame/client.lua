@@ -911,7 +911,8 @@ local function CreateGunGameUI(panel)
                 "Spawn points available: " .. spawnPointCount .. "\n" ..
                 "Health: " .. (GUNGAME.HealthEntry:GetValue() or "100") .. "\n" ..
                 "Armor: " .. (GUNGAME.ArmorEntry:GetValue() or "100") .. "\n" ..
-                "Time limit: " .. timeDisplay,
+                "Time limit: " .. timeDisplay .. "\n" ..
+                "Prize: " .. (GUNGAME.PrizeEntry:GetValue() or "none") .. "\n",
                 "Confirm event start",
                 "Yes", function()
                     -- Send game options
@@ -934,6 +935,10 @@ local function CreateGunGameUI(panel)
                             regenOption = 3
                         end
                         net.WriteUInt(regenOption, 2) -- Using 2 bits (0-3)
+                        
+                        -- Send prize amount
+                        local prizeAmount = math.max(0, tonumber(GUNGAME.PrizeEntry:GetValue()) or 0)
+                        net.WriteUInt(prizeAmount, 32) -- Using 32 bits for prize amount
                     net.SendToServer()
                     
                     -- Then start the event
