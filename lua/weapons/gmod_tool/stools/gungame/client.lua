@@ -788,6 +788,28 @@ local function CreateGunGameUI(panel)
     
     -- Store the regeneration combobox for later use
     GUNGAME.RegenCombo = regenCombo
+    
+    -- Prize input
+    local prizeContainer = vgui.Create("DPanel", panel)
+    prizeContainer:Dock(TOP)
+    prizeContainer:DockMargin(0, 0, 0, 8)
+    prizeContainer:SetTall(28)
+    prizeContainer:SetPaintBackground(false)
+    
+    local prizeLabel = vgui.Create("DLabel", prizeContainer)
+    prizeLabel:Dock(LEFT)
+    prizeLabel:SetWide(100)
+    prizeLabel:SetText("Prize:")
+    prizeLabel:SetTextColor(Color(40, 40, 40))
+    
+    local prizeEntry = vgui.Create("DTextEntry", prizeContainer)
+    prizeEntry:Dock(FILL)
+    prizeEntry:SetPlaceholderText("0")
+    prizeEntry:SetNumeric(true) -- Only allow numbers
+    prizeEntry:SetValue("0")
+    
+    -- Store the prize entry for later use
+    GUNGAME.PrizeEntry = prizeEntry
 
     -- Event control button
     GUNGAME.EventActive = false
