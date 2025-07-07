@@ -348,6 +348,13 @@ net.Receive("gungame_start_event", function(_, ply)
         return 
     end
     
+    -- Verificar si ya hay un evento activo
+    if gungame_event_active and IsValid(event_starter) then
+        local starterName = event_starter:Nick()
+        ply:ChatPrint("¡Ya hay un evento de GunGame activo iniciado por: " .. starterName)
+        return
+    end
+    
     local area = points[ply]
     if not area or #area < GUNGAME.Config.MinPoints then 
         ply:ChatPrint("Error: No hay suficientes puntos definidos para el área.")
