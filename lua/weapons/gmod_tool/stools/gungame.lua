@@ -43,14 +43,19 @@ if CLIENT then
     end
 end
 
+if CLIENT then
+    include(toolDir.."cl_holograms.lua")
+end
+
+
 function TOOL.BuildCPanel(panel)
+    include(toolDir.."cl_holograms.lua")
     if not HasGunGameAccess(LocalPlayer()) then
         panel:AddControl("Label", {Text = "Acceso denegado."})
         return
     end
     
     -- Cargar el código del cliente
-    include(toolDir.."cl_holograms.lua")
     local CreateGunGameUI = include(toolDir.."client.lua")
     
     if CreateGunGameUI then
