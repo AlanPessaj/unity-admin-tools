@@ -155,6 +155,12 @@ net.Receive("gungame_options", function(len, ply)
     local timeLimit = net.ReadUInt(16)
     local regenOption = net.ReadUInt(2) -- Read regeneration option (0-3)
     local prizeAmount = net.ReadUInt(32) -- Read prize amount
+    local knifeClass = net.ReadString() -- Read knife class
+    
+    -- Validate knife class (ensure it's a valid weapon)
+    if knifeClass == "" or not weapons.Get(knifeClass) then
+        knifeClass = ""
+    end
     
     -- Store the options in the global table
     GUNGAME.PlayerHealth = health
@@ -162,6 +168,7 @@ net.Receive("gungame_options", function(len, ply)
     GUNGAME.PlayerSpeedMultiplier = math.max(0.1, math.min(10.0, speedMultiplier))
     GUNGAME.RegenOption = regenOption -- Store regeneration option (0: Disabled, 1: Enabled, 2: Slow, 3: Confirmed Kill)
     GUNGAME.PrizeAmount = prizeAmount -- Store the prize amount
+    GUNGAME.KnifeClass = knifeClass -- Store the knife class
     
     if timeLimit < 0 then
         GUNGAME.TimeLimit = -1
@@ -419,6 +426,10 @@ net.Receive("gungame_start_event", function(_, ply)
                 local firstWeapon = GUNGAME.Weapons[1]
                 if firstWeapon then
                     p:Give(firstWeapon)
+                    if GUNGAME.KnifeClass then
+                        p:Give(GUNGAME.KnifeClass)
+                    end
+                    p:SelectWeapon(firstWeapon)
                 end
             end
             
@@ -716,6 +727,9 @@ hook.Add("PlayerSpawn", "gungame_respawn_in_area", function(ply)
                 if IsValid(ply) then
                     ply:StripWeapons()
                     ply:Give(weaponClass)
+                    if GUNGAME.KnifeClass then
+                        ply:Give(GUNGAME.KnifeClass)
+                    end
                     ply:SelectWeapon(weaponClass)
                 end
             end)
@@ -770,6 +784,9 @@ hook.Add("PlayerSpawn", "gungame_respawn_after_death", function(ply)
             if weaponClass then
                 ply:StripWeapons()
                 ply:Give(weaponClass)
+                if GUNGAME.KnifeClass then
+                    ply:Give(GUNGAME.KnifeClass)
+                end
                 ply:SelectWeapon(weaponClass)
             end
         end
@@ -808,6 +825,10 @@ hook.Add("PlayerDeath", "gungame_player_death", function(victim, inflictor, atta
         if gungame_players[attacker_steamid64] and gungame_players[victim_steamid64] then
             -- Incrementar las kills del jugador
             gungame_players[attacker_steamid64].kills = gungame_players[attacker_steamid64].kills + 1
+
+            if inflictor:GetClass() == GUNGAME.KnifeClass and gungame_players[victim_steamid64].level > 1 then
+                gungame_players[victim_steamid64].level = gungame_players[victim_steamid64].level - 1
+            end
             
             -- Manejar la regeneración según la opción seleccionada
             local regenOption = GUNGAME.RegenOption or 0
@@ -867,6 +888,9 @@ hook.Add("PlayerDeath", "gungame_player_death", function(victim, inflictor, atta
                         if IsValid(attacker) then
                             attacker:StripWeapons()
                             attacker:Give(weaponID)
+                            if GUNGAME.KnifeClass then
+                                attacker:Give(GUNGAME.KnifeClass)
+                            end
                             attacker:SelectWeapon(weaponID)
                         end
                     end)

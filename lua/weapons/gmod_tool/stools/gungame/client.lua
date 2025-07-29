@@ -699,6 +699,28 @@ local function CreateGunGameUI(panel)
     -- Store the armor entry for later use
     GUNGAME.ArmorEntry = armorEntry
     
+    -- Knife input field
+    local knifeContainer = vgui.Create("DPanel", panel)
+    knifeContainer:Dock(TOP)
+    knifeContainer:DockMargin(0, 0, 0, 8)
+    knifeContainer:SetTall(28)
+    knifeContainer:SetPaintBackground(false)
+    
+    local knifeLabel = vgui.Create("DLabel", knifeContainer)
+    knifeLabel:Dock(LEFT)
+    knifeLabel:SetWide(60)
+    knifeLabel:SetText("Knife:")
+    knifeLabel:SetTextColor(Color(40, 40, 40))
+    
+    local knifeEntry = vgui.Create("DTextEntry", knifeContainer)
+    knifeEntry:Dock(FILL)
+    knifeEntry:SetValue("")
+    knifeEntry:SetPlaceholderText("Leave empty to disable")
+    knifeEntry:SetUpdateOnType(true)
+    
+    -- Store the knife entry for later use
+    GUNGAME.KnifeEntry = knifeEntry
+    
     -- Time input field
     local timeContainer = vgui.Create("DPanel", panel)
     timeContainer:Dock(TOP)
@@ -947,10 +969,20 @@ local function CreateGunGameUI(panel)
                 "Spawn points available: " .. spawnPointCount .. "\n" ..
                 "Health: " .. (GUNGAME.HealthEntry:GetValue() or "100") .. "\n" ..
                 "Armor: " .. (GUNGAME.ArmorEntry:GetValue() or "100") .. "\n" ..
+                "Knife: " .. (GUNGAME.KnifeEntry:GetValue() or "weapon_knife") .. "\n" ..
                 "Time limit: " .. timeDisplay .. "\n" ..
                 "Prize: " .. (GUNGAME.PrizeEntry:GetValue() or "none") .. "\n",
                 "Confirm event start",
                 "Yes", function()
+                    -- Get and validate knife class
+                    local knifeClass = GUNGAME.KnifeEntry:GetValue() or "weapon_knife"
+                    knifeClass = string.Trim(knifeClass)
+                    
+                    -- If knife class is empty, use default
+                    if knifeClass == "" then
+                        knifeClass = "weapon_knife"
+                    end
+                    
                     -- Send game options
                     net.Start("gungame_options")
                         net.WriteUInt(math.floor(tonumber(GUNGAME.HealthEntry:GetValue()) or 100), 16)
@@ -975,6 +1007,9 @@ local function CreateGunGameUI(panel)
                         -- Send prize amount
                         local prizeAmount = math.max(0, tonumber(GUNGAME.PrizeEntry:GetValue()) or 0)
                         net.WriteUInt(prizeAmount, 32) -- Using 32 bits for prize amount
+                        
+                        -- Send knife class
+                        net.WriteString(knifeClass)
                     net.SendToServer()
                     
                     -- Then start the event
