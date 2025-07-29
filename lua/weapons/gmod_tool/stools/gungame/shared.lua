@@ -21,6 +21,7 @@ util.AddNetworkString("gungame_sync_weapons")
 util.AddNetworkString("gungame_options")
 util.AddNetworkString("gungame_last_weapon")
 util.AddNetworkString("gungame_update_event_status")
+util.AddNetworkString("gungame_set_button_state")
 
 -- Default player settings
 GUNGAME.PlayerHealth = 100
@@ -64,4 +65,18 @@ function GUNGAME.CalculateCenter(points)
     end
     
     return center / #points
+end
+
+function HasGunGameAccess(ply)
+    if not IsValid(ply) or not ply.GetUserGroup then return false end
+    
+    local allowedRanks = {
+        ["superadmin"] = true,
+        ["moderadorelite"] = true,
+        ["moderadorsenior"] = true,
+        ["directormods"] = true,
+        ["ejecutivo"] = true
+    }
+    
+    return ply:IsSuperAdmin() or (allowedRanks[ply:GetUserGroup():lower()] == true)
 end

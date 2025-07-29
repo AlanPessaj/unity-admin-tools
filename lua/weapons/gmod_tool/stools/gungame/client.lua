@@ -33,10 +33,11 @@ net.Receive("gungame_play_win_sound", function()
 end)
 
 
-net.Receive("gungame_update_event_status", function()
-    enabled = net.ReadBool()
-    GUNGAME.SetButtonState(enabled)
-    print("actializado 111222")
+net.Receive("gungame_set_button_state", function()
+    local enabled = net.ReadBool()
+    if GUNGAME.SetButtonState and HasGunGameAccess(LocalPlayer()) then
+        GUNGAME.SetButtonState(enabled)
+    end
 end)
 
 net.Receive("gungame_play_kill_sound", function()
@@ -134,6 +135,7 @@ end)
 
 -- Recibir mensajes de depuración del servidor
 net.Receive("gungame_debug_message", function()
+    if not HasGunGameAccess(LocalPlayer()) then return end
     local message = net.ReadString()
     if message then
         LocalPlayer():ChatPrint("[GunGame Debug] " .. message)
@@ -353,6 +355,7 @@ hook.Add("OnReloaded", "GunGame_CleanupEventPanel", function()
 end)
 
 net.Receive("gungame_area_update_points", function()
+    if not HasGunGameAccess(LocalPlayer()) then return end
     GUNGAME.AreaPoints = net.ReadTable() or {}
     -- Update the panel if it exists
     if IsValid(GUNGAME.AreaPanel) then
@@ -362,6 +365,7 @@ net.Receive("gungame_area_update_points", function()
 end)
 
 net.Receive("gungame_update_spawnpoints", function()
+    if not HasGunGameAccess(LocalPlayer()) then return end
     GUNGAME.SpawnPoints = net.ReadTable() or {}
     if IsValid(GUNGAME.SpawnPanel) then
         GUNGAME.SpawnPanel:InvalidateLayout(true)
@@ -369,6 +373,7 @@ net.Receive("gungame_update_spawnpoints", function()
 end)
 
 net.Receive("gungame_event_stopped", function()
+    if not HasGunGameAccess(LocalPlayer()) then return end
     GUNGAME.SpawnPoints = {}
     if GUNGAME.SetButtonState then
         GUNGAME.SetButtonState(false)
@@ -388,6 +393,7 @@ end)
 
 -- Función para actualizar la lista de armas en la UI
 local function UpdateWeaponList()
+    if not HasGunGameAccess(LocalPlayer()) then return end
     if not IsValid(weaponListPanel) then return end
     weaponListPanel:Clear()
     
@@ -402,6 +408,7 @@ end
 
 -- Función para sincronizar la lista de armas con el servidor
 local function SyncWeaponsWithServer()
+    if not HasGunGameAccess(LocalPlayer()) then return end
     net.Start("gungame_sync_weapons")
         net.WriteUInt(#GUNGAME.Weapons, 8)
         for _, weaponID in ipairs(GUNGAME.Weapons) do
@@ -412,6 +419,7 @@ end
 
 -- Función para limpiar la lista de armas
 local function ClearWeaponList()
+    if not HasGunGameAccess(LocalPlayer()) then return end
     GUNGAME.Weapons = {}
     if IsValid(weaponListPanel) then
         weaponListPanel:Clear()
@@ -422,6 +430,7 @@ end
 
 
 net.Receive("gungame_weapon_validated", function()
+    if not HasGunGameAccess(LocalPlayer()) then return end
     local isValid = net.ReadBool()
     local weaponID = net.ReadString()
     
@@ -437,6 +446,7 @@ net.Receive("gungame_weapon_validated", function()
 end)
 
 net.Receive("gungame_clear_weapons", function()
+    if not HasGunGameAccess(LocalPlayer()) then return end
     ClearWeaponList()
     hook.Run("GunGame_WeaponsUpdated")
 end)
@@ -908,7 +918,7 @@ local function CreateGunGameUI(panel)
         end
     end
     
-    -- Button state management
+    -- Button state management CHECKPOINT BUTTON TOGGLE
     GUNGAME.SetButtonState = function(active)
         GUNGAME.EventActive = active
         if active then
@@ -919,12 +929,30 @@ local function CreateGunGameUI(panel)
             btnDelete:SetEnabled(false)
             btnAddSpawn:SetEnabled(false)
             btnClearSpawns:SetEnabled(false)
+            randomButton:SetEnabled(false)
+            addButton:SetEnabled(false)
+            healthEntry:SetEnabled(false)
+            armorEntry:SetEnabled(false)
+            knifeEntry:SetEnabled(false)
+            timeEntry:SetEnabled(false)
+            speedEntry:SetEnabled(false)
+            regenCombo:SetEnabled(false)
+            prizeEntry:SetEnabled(false)
         else
             btnStart:SetText("Start event")
             btnSelect:SetEnabled(true)
             btnDelete:SetEnabled(true)
             btnAddSpawn:SetEnabled(true)
             btnClearSpawns:SetEnabled(true)
+            randomButton:SetEnabled(true)
+            addButton:SetEnabled(true)
+            healthEntry:SetEnabled(true)
+            armorEntry:SetEnabled(true)
+            knifeEntry:SetEnabled(true)
+            timeEntry:SetEnabled(true)
+            speedEntry:SetEnabled(true)
+            regenCombo:SetEnabled(true)
+            prizeEntry:SetEnabled(true)
             UpdateStartButtonState()
         end
     end

@@ -2,21 +2,6 @@ AddCSLuaFile("shared.lua")
 AddCSLuaFile("client.lua")
 include("shared.lua")
 
--- Función para verificar si el jugador tiene permisos
-local function HasGunGameAccess(ply)
-    if not IsValid(ply) or not ply.GetUserGroup then return false end
-    
-    local allowedRanks = {
-        ["superadmin"] = true,
-        ["moderadorelite"] = true,
-        ["moderadorsenior"] = true,
-        ["directormods"] = true,
-        ["ejecutivo"] = true
-    }
-    
-    return ply:IsSuperAdmin() or (allowedRanks[ply:GetUserGroup():lower()] == true)
-end
-
 -- Network strings
 util.AddNetworkString("gungame_area_start")
 util.AddNetworkString("gungame_area_clear")
@@ -356,7 +341,7 @@ net.Receive("gungame_start_event", function(_, ply)
         return 
     end
     
-    net.Start("gungame_update_event_status")
+    net.Start("gungame_set_button_state")
         net.WriteBool(true)
     net.Broadcast()
 
@@ -582,7 +567,7 @@ net.Receive("gungame_start_event", function(_, ply)
                 -- Detener el evento
                 RunConsoleCommand("gungame_stop_event")
                 
-                net.Start("gungame_update_event_status")
+                net.Start("gungame_set_button_state")
                     net.WriteBool(false)
                 net.Broadcast()
             end
@@ -635,7 +620,7 @@ net.Receive("gungame_stop_event", function(_, ply)
         end
     end
     
-    net.Start("gungame_update_event_status")
+    net.Start("gungame_set_button_state")
         net.WriteBool(false)
     net.Broadcast()
     
