@@ -426,7 +426,7 @@ net.Receive("gungame_start_event", function(_, ply)
                 local firstWeapon = GUNGAME.Weapons[1]
                 if firstWeapon then
                     p:Give(firstWeapon)
-                    if GUNGAME.KnifeClass then
+                    if GUNGAME.KnifeClass ~= "" then
                         p:Give(GUNGAME.KnifeClass)
                     end
                     p:SelectWeapon(firstWeapon)
@@ -727,7 +727,7 @@ hook.Add("PlayerSpawn", "gungame_respawn_in_area", function(ply)
                 if IsValid(ply) then
                     ply:StripWeapons()
                     ply:Give(weaponClass)
-                    if GUNGAME.KnifeClass then
+                    if GUNGAME.KnifeClass ~= "" then
                         ply:Give(GUNGAME.KnifeClass)
                     end
                     ply:SelectWeapon(weaponClass)
@@ -784,7 +784,7 @@ hook.Add("PlayerSpawn", "gungame_respawn_after_death", function(ply)
             if weaponClass then
                 ply:StripWeapons()
                 ply:Give(weaponClass)
-                if GUNGAME.KnifeClass then
+                if GUNGAME.KnifeClass ~= "" then
                     ply:Give(GUNGAME.KnifeClass)
                 end
                 ply:SelectWeapon(weaponClass)
@@ -893,7 +893,8 @@ hook.Add("PlayerDeath", "gungame_player_death", function(victim, inflictor, atta
                         if IsValid(attacker) then
                             attacker:StripWeapons()
                             attacker:Give(weaponID)
-                            if GUNGAME.KnifeClass then
+
+                            if GUNGAME.KnifeClass ~= "" then
                                 attacker:Give(GUNGAME.KnifeClass)
                             end
                             attacker:SelectWeapon(weaponID)
