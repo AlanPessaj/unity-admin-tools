@@ -36,7 +36,6 @@ end
 
 if CLIENT then
     function TOOL:DrawHUD()
-        if not HasGunGameAccess(LocalPlayer()) then return end
         if self.BaseClass then
             self.BaseClass.DrawHUD(self)
         end

@@ -213,7 +213,12 @@ end
 
 -- Función para actualizar el panel de evento
 local function UpdateEventPanel(active, eventStarter, timeLimit, startTime)
-    if not IsValid(GUNGAME.EventPanel) and active then
+
+    if IsValid(GUNGAME.EventPanel) then
+        GUNGAME.EventPanel:Remove()
+    end
+
+    if active then
         GUNGAME.EventPanel = vgui.Create("DPanel")
         GUNGAME.EventPanel:SetSize(200, 100)
         GUNGAME.EventPanel:SetPos(20, 20)
