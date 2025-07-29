@@ -44,6 +44,7 @@ end
 
 if CLIENT then
     include(toolDir.."cl_holograms.lua")
+    CreateGunGameUI = include(toolDir.."client.lua")
 end
 
 
@@ -55,8 +56,6 @@ function TOOL.BuildCPanel(panel)
     end
     
     -- Cargar el código del cliente
-    local CreateGunGameUI = include(toolDir.."client.lua")
-    
     if CreateGunGameUI then
         -- Inicializar el panel
         if panel.SetName then panel:SetName("") end
