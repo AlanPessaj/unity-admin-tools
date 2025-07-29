@@ -37,6 +37,7 @@ util.AddNetworkString("GunGame_RemoveHologram")
 util.AddNetworkString("gungame_play_pickup_sound")
 util.AddNetworkString("gungame_player_won")
 util.AddNetworkString("gungame_transfer_prize")
+util.AddNetworkString("gungame_update_event_status")
 
 -- Server state
 local selecting = {}
@@ -285,7 +286,7 @@ net.Receive("gungame_validate_weapon", function(len, ply)
     net.Start("gungame_weapon_validated")
         net.WriteBool(isValid)
         net.WriteString(weaponID)
-    net.Send(ply)
+    net.Broadcast()
 end)
 
 net.Receive("gungame_sync_weapons", function(_, ply)
@@ -355,6 +356,10 @@ net.Receive("gungame_start_event", function(_, ply)
         return 
     end
     
+    net.Start("gungame_update_event_status")
+        net.WriteBool(true)
+    net.Broadcast()
+
     -- Verificar si ya hay un evento activo
     if gungame_event_active and IsValid(event_starter) then
         local starterName = event_starter:Nick()
@@ -576,6 +581,10 @@ net.Receive("gungame_start_event", function(_, ply)
                 
                 -- Detener el evento
                 RunConsoleCommand("gungame_stop_event")
+                
+                net.Start("gungame_update_event_status")
+                    net.WriteBool(false)
+                net.Broadcast()
             end
         end)
         
@@ -625,6 +634,10 @@ net.Receive("gungame_stop_event", function(_, ply)
             data.player:ChatPrint("[GunGame] ¡El evento ha sido detenido!")
         end
     end
+    
+    net.Start("gungame_update_event_status")
+        net.WriteBool(false)
+    net.Broadcast()
     
     for steamid64, data in pairs(gungame_players) do
         if IsValid(data.player) then

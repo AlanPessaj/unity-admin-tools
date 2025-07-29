@@ -32,6 +32,13 @@ net.Receive("gungame_play_win_sound", function()
     end
 end)
 
+
+net.Receive("gungame_update_event_status", function()
+    enabled = net.ReadBool()
+    GUNGAME.SetButtonState(enabled)
+    print("actializado 111222")
+end)
+
 net.Receive("gungame_play_kill_sound", function()
     local killSound = "gungame/kill/kill_sound.mp3"
     if file.Exists("sound/" .. killSound, "GAME") then
