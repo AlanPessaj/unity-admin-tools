@@ -158,7 +158,7 @@ net.Receive("gungame_options", function(len, ply)
     local knifeClass = net.ReadString() -- Read knife class
     
     -- Validate knife class (ensure it's a valid weapon)
-    if knifeClass == "" or not weapons.Get(knifeClass) then
+    if not weapons.Get(knifeClass) then
         knifeClass = ""
     end
     
