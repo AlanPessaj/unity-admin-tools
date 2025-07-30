@@ -334,12 +334,7 @@ hook.Add("HUDPaint", "GunGame_EventHUD", function()
     
     -- Actualizar contador de jugadores
     if IsValid(GUNGAME.EventPanel.Players) then
-        local playerCount = 0
-        for _, ply in ipairs(player.GetAll()) do
-            if IsValid(ply) and ply:Alive() then
-                playerCount = playerCount + 1
-            end
-        end
+        local playerCount = CountPlayersInArea()
         GUNGAME.EventPanel.Players:SetText("Jugadores: " .. playerCount)
         GUNGAME.EventPanel.Players:SizeToContents()
     end
