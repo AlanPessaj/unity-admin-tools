@@ -57,6 +57,21 @@ local function StopPlayerRegeneration(ply)
     end
 end
 
+-- Handle player disconnection
+hook.Add("PlayerDisconnected", "GunGame_PlayerDisconnected", function(ply)
+    if not gungame_event_active or not IsValid(ply) then return end
+    
+    local steamID64 = ply:SteamID64()
+    if gungame_players[steamID64] then
+        -- Remove player from the GunGame player list
+        gungame_players[steamID64] = nil
+        
+        -- Clean up any regeneration data
+        regenerating_players[steamID64] = nil
+        DebugMessage("Player " .. ply:Nick() .. " has been removed from the GunGame event (disconnected)")
+    end
+end)
+
 -- Hook para manejar la regeneración progresiva
 hook.Add("Think", "GunGameProgressiveRegen", function()
     if not gungame_event_active or (GUNGAME.RegenOption or 0) ~= 2 then return end
@@ -275,7 +290,13 @@ net.Receive("gungame_validate_weapon", function(len, ply)
 end)
 
 net.Receive("gungame_sync_weapons", function(_, ply)
-    if not IsValid(ply) then return end
+    if not IsValid(ply) or not HasGunGameAccess(ply) then return end
+
+    if gungame_event_active then
+        ply:ChatPrint("Error: Ya hay un evento de GunGame activo.")
+        return
+    end
+
     local count = net.ReadUInt(8)
     local weaponsList = {}
     for i = 1, count do
@@ -288,6 +309,10 @@ net.Receive("gungame_sync_weapons", function(_, ply)
 end)
 net.Receive("gungame_clear_weapons", function(len, ply)
     if not IsValid(ply) then return end
+    if gungame_event_active then
+        ply:ChatPrint("Error: Ya hay un evento de GunGame activo.")
+        return
+    end
     GUNGAME.Weapons = {}
     net.Start("gungame_clear_weapons")
     net.Broadcast()
@@ -308,7 +333,11 @@ net.Receive("gungame_area_clear", function(_, ply)
         ply:ChatPrint("Error: No tienes permisos para limpiar el área.")
         return 
     end
-    if gungame_event_active then return end
+    
+    if gungame_event_active then
+        ply:ChatPrint("Error: Ya hay un evento de GunGame activo.")
+        return
+    end
     
     -- Clear points for this player
     selecting[ply] = false
@@ -341,16 +370,16 @@ net.Receive("gungame_start_event", function(_, ply)
         return 
     end
     
-    net.Start("gungame_set_button_state")
-        net.WriteBool(true)
-    net.Broadcast()
-
     -- Verificar si ya hay un evento activo
     if gungame_event_active and IsValid(event_starter) then
         local starterName = event_starter:Nick()
         ply:ChatPrint("¡Ya hay un evento de GunGame activo iniciado por: " .. starterName)
         return
     end
+
+    net.Start("gungame_set_button_state")
+        net.WriteBool(true)
+    net.Broadcast()
     
     local area = points[ply]
     if not area or #area < GUNGAME.Config.MinPoints then 
@@ -1046,6 +1075,11 @@ net.Receive("gungame_add_spawnpoint", function(_, ply)
         ply:ChatPrint("Error: No tienes permisos para añadir puntos de aparición.")
         return 
     end
+
+    if gungame_event_active then
+        ply:ChatPrint("Error: Ya hay un evento de GunGame activo.")
+        return
+    end
     
     -- Leer la posición y ángulo enviados por el cliente
     local pos = net.ReadVector()
@@ -1073,6 +1107,11 @@ net.Receive("gungame_clear_spawnpoints", function(_, ply)
         return 
     end
     
+    if gungame_event_active then
+        ply:ChatPrint("Error: Ya hay un evento de GunGame activo.")
+        return
+    end
+
     spawnPoints = {}
     
     -- Update all clients that spawn points have been cleared
