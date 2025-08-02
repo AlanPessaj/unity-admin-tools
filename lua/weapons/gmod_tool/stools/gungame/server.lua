@@ -855,6 +855,8 @@ hook.Add("PlayerDeath", "gungame_player_death", function(victim, inflictor, atta
 
             if inflictor:GetClass() == GUNGAME.KnifeClass and gungame_players[victim_steamid64].level > 1 then
                 gungame_players[victim_steamid64].level = gungame_players[victim_steamid64].level - 1
+                net.Start("gungame_humiliation")
+                net.Send(victim)
                 for steamid64, data in pairs(gungame_players) do
                     if IsValid(data.player) then
                         data.player:ChatPrint("[GunGame] ¡" .. attacker:Nick() .. " ha humillado a " .. victim:Nick() .. "!")

@@ -52,6 +52,18 @@ net.Receive("gungame_play_kill_sound", function()
     end
 end)
 
+net.Receive("gungame_humiliation", function()
+    local killSound = "gungame/humiliation/humiliationSound.wav"
+    if file.Exists("sound/" .. killSound, "GAME") then
+        sound.PlayFile("sound/" .. killSound, "noplay", function(station, errorID, errorName)
+            if IsValid(station) then
+                station:SetVolume(2)
+                station:Play()
+            end
+        end)
+    end
+end)
+
 -- Handle player won notification with prize
 net.Receive("gungame_player_won", function()
     local winner = net.ReadEntity()
