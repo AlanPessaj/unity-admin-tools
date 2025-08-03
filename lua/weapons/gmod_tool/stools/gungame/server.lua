@@ -27,7 +27,7 @@ util.AddNetworkString("gungame_validate_weapon")
 util.AddNetworkString("gungame_weapon_validated")
 util.AddNetworkString("gungame_clear_weapons")
 util.AddNetworkString("gungame_play_countdown_sound")
-util.AddNetworkString("gungame_play_win_sound")
+util.AddNetworkString("gungame_play_end_sound")
 util.AddNetworkString("gungame_play_kill_sound")
 util.AddNetworkString("gungame_area_start")
 util.AddNetworkString("gungame_area_clear")
@@ -257,8 +257,9 @@ local function HandlePlayerWin(ply)
     end
     
     -- Reproducir sonido solo para el ganador
-    net.Start("gungame_play_win_sound")
-    net.Send(ply)
+    net.Start("gungame_play_end_sound")
+    net.WriteEntity(ply)
+    net.Broadcast()
     
     -- Detener el evento después de 5 segundos
     timer.Simple(5, function()

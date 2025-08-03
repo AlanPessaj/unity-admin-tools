@@ -20,15 +20,27 @@ language.Add("tool.gungame.desc", "Creado por AlanPessaj ◢ ◤")
 language.Add("tool.gungame.0", "Configura las opciones en el menú de la herramienta.")
 
 -- Network receivers
-net.Receive("gungame_play_win_sound", function()
+net.Receive("gungame_play_end_sound", function()
     local winSound = "gungame/win/win_sound.mp3"
-    if file.Exists("sound/" .. winSound, "GAME") then
-        sound.PlayFile("sound/" .. winSound, "noplay", function(station, errorID, errorName)
-            if IsValid(station) then
-                station:SetVolume(1)
-                station:Play()
-            end
-        end)
+    local winner = net.ReadEntity()
+    if winner == LocalPlayer() then
+        if file.Exists("sound/" .. winSound, "GAME") then
+            sound.PlayFile("sound/" .. winSound, "noplay", function(station, errorID, errorName)
+                if IsValid(station) then
+                    station:SetVolume(1)
+                    station:Play()
+                end
+            end)
+        end
+    else
+        if file.Exists("sound/gungame/loose/looseSound.mp3", "GAME") then
+            sound.PlayFile("sound/gungame/loose/looseSound.mp3", "noplay", function(station, errorID, errorName)
+                if IsValid(station) then
+                    station:SetVolume(2)
+                    station:Play()
+                end
+            end)
+        end
     end
 end)
 
