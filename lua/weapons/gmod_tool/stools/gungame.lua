@@ -44,28 +44,32 @@ end
 
 if CLIENT then
     include(toolDir.."cl_holograms.lua")
-    CreateGunGameUI = include(toolDir.."client.lua")
+    -- No asignamos a CreateGunGameUI aquí, se hará directamente en BuildCPanel
 end
 
-
 function TOOL.BuildCPanel(panel)
-    include(toolDir.."cl_holograms.lua")
+    -- Verificar permisos
     if not HasGunGameAccess(LocalPlayer()) then
         panel:AddControl("Label", {Text = "Acceso denegado."})
         return
     end
     
-    -- Cargar el código del cliente
-    if CreateGunGameUI then
-        -- Inicializar el panel
-        if panel.SetName then panel:SetName("") end
-        
-        GUNGAME = GUNGAME or {}
-        GUNGAME.AreaPanel = panel
-        panel:DockPadding(8, 8, 8, 8)
-        
-        -- Crear la interfaz de usuario
-        CreateGunGameUI(panel)
+    -- Cargar la UI si no está cargada
+    if not _G.CreateGunGameUI then
+        include(toolDir.."cl_holograms.lua")
+        _G.CreateGunGameUI = include(toolDir.."client.lua")
+    end
+    
+    -- Inicializar el panel
+    GUNGAME = GUNGAME or {}
+    GUNGAME.AreaPanel = panel
+    
+    -- Asegurar que el panel tenga el padding correcto
+    panel:DockPadding(8, 8, 8, 8)
+    
+    -- Crear la interfaz de usuario
+    if _G.CreateGunGameUI then
+        _G.CreateGunGameUI(panel)
     else
         panel:AddControl("Label", {Text = "Error al cargar la interfaz de usuario."})
     end

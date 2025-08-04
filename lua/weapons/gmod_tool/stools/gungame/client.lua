@@ -1174,4 +1174,5 @@ hook.Add("PostDrawTranslucentRenderables", "gungame_area_draw_points", function(
     end
 end)
 
+_G.CreateGunGameUI = CreateGunGameUI
 return CreateGunGameUI

@@ -1,3 +1,2 @@
-AddCSLuaFile("shared.lua")
-AddCSLuaFile("client.lua")
-include("shared.lua")
+-- Servidor para la herramienta PropMovement
+-- Este archivo está intencionalmente en blanco ya que no se requiere lógica de servidor en este momento
