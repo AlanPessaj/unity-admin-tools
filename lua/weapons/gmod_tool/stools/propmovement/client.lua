@@ -1,219 +1,175 @@
+-- Tabla para almacenar los props seleccionados con información adicional
+local selectedProps = {}
+local selectedPropsPanel = nil
+local mainPanel = nil
+
+-- Función para obtener un nombre descriptivo del prop
+local function GetPropDisplayName(ent)
+    if not IsValid(ent) then return "Invalid Entity" end
+    
+    local model = ent:GetModel() or "unknown"
+    local modelName = string.GetFileFromFilename(model)
+    local entIndex = ent:EntIndex()
+    
+    return string.format("%s (ID: %d)", modelName, entIndex)
+end
+
+-- Función para actualizar la lista de props en la UI
+local function UpdateSelectedPropsUI()
+    if not IsValid(selectedPropsPanel) then return end
+    
+    -- Limpiar la lista actual
+    selectedPropsPanel:Clear()
+    
+    -- Limpiar props inválidos de la lista primero
+    for i = #selectedProps, 1, -1 do
+        if not IsValid(selectedProps[i].entity) then
+            table.remove(selectedProps, i)
+        end
+    end
+    
+    -- Agregar cada prop a la lista
+    if #selectedProps == 0 then
+        local noPropsLabel = selectedPropsPanel:Add("DLabel")
+        noPropsLabel:SetText("No props selected")
+        noPropsLabel:Dock(TOP)
+        noPropsLabel:SetTextColor(Color(100, 100, 100))
+        noPropsLabel:DockMargin(5, 2, 5, 2)
+        noPropsLabel:SizeToContents()
+    else
+        for i, propData in ipairs(selectedProps) do
+            if IsValid(propData.entity) then
+                local label = selectedPropsPanel:Add("DLabel")
+                label:SetText(string.format("%d. %s", i, propData.displayName))
+                label:Dock(TOP)
+                label:SetTextColor(Color(0, 0, 0))
+                label:DockMargin(5, 2, 5, 2)
+                label:SizeToContents()
+            end
+        end
+    end
+    
+    -- Actualizar el contador en el header
+    if IsValid(mainPanel) and IsValid(mainPanel.headerLabel) then
+        mainPanel.headerLabel:SetText(string.format("Selected Props (%d):", #selectedProps))
+        mainPanel.headerLabel:SizeToContents()
+    end
+end
+
+-- Función para manejar la selección de props
+local function SelectProp(ent)
+    if not IsValid(ent) or ent:GetClass() ~= "prop_physics" then 
+        return false 
+    end
+    
+    -- Verificar si el prop ya está en la lista
+    for i, propData in ipairs(selectedProps) do
+        if not IsValid(propData.entity) then
+            -- Remover props inválidos
+            table.remove(selectedProps, i)
+        elseif propData.entity == ent then
+            -- Ya existe
+            return false
+        end
+    end
+    
+    -- Agregar el prop a la lista
+    local propData = {
+        entity = ent,
+        displayName = GetPropDisplayName(ent),
+        model = ent:GetModel(),
+        entIndex = ent:EntIndex()
+    }
+    
+    table.insert(selectedProps, propData)
+    surface.PlaySound("buttons/button14.wav")
+    return true
+end
+
+-- Función para el clic izquierdo
+function TOOL:LeftClick(tr)
+    if not IsFirstTimePredicted() then return false end
+    if not IsValid(tr.Entity) or tr.Entity:GetClass() ~= "prop_physics" then 
+        return false 
+    end
+    
+    -- Crear el efecto del rayo de la toolgun
+    local effectdata = EffectData()
+    effectdata:SetOrigin(tr.HitPos)
+    effectdata:SetStart(self:GetOwner():GetShootPos())
+    effectdata:SetAttachment(1)
+    effectdata:SetEntity(self:GetOwner())
+    util.Effect("ToolTracer", effectdata)
+    
+    -- Seleccionar el prop
+    local success = SelectProp(tr.Entity)
+    
+    -- Actualizar la UI
+    UpdateSelectedPropsUI()
+    
+    return success
+end
+
 -- Global UI function that will be called by the tool
 function PropMovement_UI(panel)
     -- Clear the panel first
     panel:ClearControls()
+    mainPanel = panel
     
-    -- Header
-    local header = vgui.Create("DLabel")
-    header:SetText("PropMovement - Controles")
-    header:SetFont("DermaDefaultBold")
-    header:SetTextColor(Color(0, 0, 0))
-    header:SizeToContents()
-    panel:AddItem(header)
+    -- Header con contador
+    local headerLabel = vgui.Create("DLabel")
+    headerLabel:SetText(string.format("Selected Props (%d):", #selectedProps))
+    headerLabel:SetFont("DermaDefaultBold")
+    headerLabel:SetTextColor(Color(0, 0, 0))
+    headerLabel:SizeToContents()
+    panel:AddItem(headerLabel)
+    mainPanel.headerLabel = headerLabel
     
-    -- Add a divider
-    panel:AddControl("Header", { Description = "Configuración de movimiento" })
+    -- Instrucciones
+    local instructionLabel = vgui.Create("DLabel")
+    instructionLabel:SetText("Left click on props to select them")
+    instructionLabel:SetTextColor(Color(60, 60, 60))
+    instructionLabel:SizeToContents()
+    panel:AddItem(instructionLabel)
     
-    -- Movement speed slider
-    local movespeed = vgui.Create("DNumSlider", panel)
-    movespeed:SetText("Velocidad de movimiento")
-    movespeed:SetMin(1)
-    movespeed:SetMax(100)
-    movespeed:SetDecimals(0)
-    movespeed:SetValue(PropMovement.Settings.MoveSpeed)
-    movespeed:SetDark(true)
-    movespeed.OnValueChanged = function(_, value)
-        PropMovement.Settings.MoveSpeed = math.Round(tonumber(value) or 10)
+    -- Botón para limpiar selección
+    local clearButton = vgui.Create("DButton")
+    clearButton:SetText("Clear All")
+    clearButton.DoClick = function()
+        selectedProps = {}
+        UpdateSelectedPropsUI()
+        surface.PlaySound("buttons/button15.wav")
     end
-    panel:AddItem(movespeed)
+    panel:AddItem(clearButton)
     
-    -- Rotation speed slider
-    local rotspeed = vgui.Create("DNumSlider", panel)
-    rotspeed:SetText("Velocidad de rotación")
-    rotspeed:SetMin(0.1)
-    rotspeed:SetMax(5)
-    rotspeed:SetDecimals(1)
-    rotspeed:SetValue(PropMovement.Settings.RotateSpeed)
-    rotspeed:SetDark(true)
-    rotspeed.OnValueChanged = function(_, value)
-        PropMovement.Settings.RotateSpeed = tonumber(value) or 1
-    end
-    panel:AddItem(rotspeed)
+    -- Panel para la lista de props
+    selectedPropsPanel = vgui.Create("DScrollPanel")
+    selectedPropsPanel:SetTall(200)
+    panel:AddItem(selectedPropsPanel)
     
-    -- Grid size slider
-    local gridsize = vgui.Create("DNumSlider", panel)
-    gridsize:SetText("Tamaño de la grilla")
-    gridsize:SetMin(0)
-    gridsize:SetMax(10)
-    gridsize:SetDecimals(1)
-    gridsize:SetValue(PropMovement.Settings.GridSize)
-    gridsize:SetDark(true)
-    gridsize.OnValueChanged = function(_, value)
-        PropMovement.Settings.GridSize = tonumber(value) or 1
-    end
-    panel:AddItem(gridsize)
+    -- Actualizar la UI con los props ya seleccionados
+    UpdateSelectedPropsUI()
     
-    -- Snap to grid checkbox
-    local snap = vgui.Create("DCheckBoxLabel", panel)
-    snap:SetText("Ajustar a la grilla")
-    snap:SetValue(PropMovement.Settings.SnapToGrid and 1 or 0)
-    snap:SetDark(true)
-    snap.OnChange = function(_, value)
-        PropMovement.Settings.SnapToGrid = tobool(value)
-    end
-    panel:AddItem(snap)
-    
-    -- Add a divider for selected props section
-    panel:AddControl("Header", { Description = "Props Seleccionados" })
-    
-    -- Scroll panel for selected props
-    local scroll = vgui.Create("DScrollPanel", panel)
-    scroll:SetTall(200)
-    panel:AddItem(scroll)
-    
-    -- Function to update the props list
-    local function UpdatePropsList()
-        scroll:Clear()
-        
-        for entIndex, propData in pairs(PropMovement.SelectedProps) do
-            if not IsValid(propData.ent) then
-                PropMovement.SelectedProps[entIndex] = nil
-                continue
-            end
-            
-            local panel = vgui.Create("DPanel", scroll)
-            panel:Dock(TOP)
-            panel:DockMargin(0, 0, 0, 5)
-            panel:SetTall(110)
-            panel:DockPadding(5, 5, 5, 5)
-            panel.Paint = function(self, w, h)
-                draw.RoundedBox(4, 0, 0, w, h, Color(240, 240, 240))
-                draw.RoundedBox(4, 1, 1, w-2, h-2, Color(255, 255, 255, 255))
-            end
-            
-            -- Prop name label
-            local name = vgui.Create("DLabel", panel)
-            name:SetText("Entidad #" .. entIndex)
-            name:SetDark(true)
-            name:Dock(TOP)
-            name:SetContentAlignment(4)
-            
-            -- Direction combo
-            local dir = vgui.Create("DComboBox", panel)
-            dir:Dock(TOP)
-            dir:DockMargin(0, 5, 0, 0)
-            dir:SetValue(propData.direction)
-            for dirName, _ in SortedPairs(PropMovement.Directions) do
-                dir:AddChoice(dirName)
-            end
-            dir.OnSelect = function(_, _, value)
-                if PropMovement.SelectedProps[entIndex] then
-                    PropMovement.SelectedProps[entIndex].direction = value
+    -- Timer para limpiar props inválidos automáticamente
+    if not panel.PropMovementInitialized then
+        panel.Think = function()
+            -- Verificar cada 2 segundos
+            if (panel.NextCheck or 0) < CurTime() then
+                panel.NextCheck = CurTime() + 2
+                
+                local removed = 0
+                for i = #selectedProps, 1, -1 do
+                    if not IsValid(selectedProps[i].entity) then
+                        table.remove(selectedProps, i)
+                        removed = removed + 1
+                    end
                 end
-            end
-            
-            -- Speed entry
-            local speed = vgui.Create("DTextEntry", panel)
-            speed:Dock(TOP)
-            speed:DockMargin(0, 5, 0, 0)
-            speed:SetPlaceholderText("Velocidad")
-            speed:SetValue(propData.speed)
-            speed.OnEnter = function(self)
-                local val = tonumber(self:GetValue()) or 100
-                if PropMovement.SelectedProps[entIndex] then
-                    PropMovement.SelectedProps[entIndex].speed = math.Clamp(val, 1, 1000)
-                    self:SetValue(PropMovement.SelectedProps[entIndex].speed)
-                end
-            end
-            
-            -- Distance entry
-            local distance = vgui.Create("DTextEntry", panel)
-            distance:Dock(TOP)
-            distance:DockMargin(0, 5, 0, 0)
-            distance:SetPlaceholderText("Distancia")
-            distance:SetValue(propData.distance)
-            distance.OnEnter = function(self)
-                local val = tonumber(self:GetValue()) or 100
-                if PropMovement.SelectedProps[entIndex] then
-                    PropMovement.SelectedProps[entIndex].distance = math.Clamp(val, 1, 10000)
-                    self:SetValue(PropMovement.SelectedProps[entIndex].distance)
-                end
-            end
-            
-            -- Cooldown entry
-            local cooldown = vgui.Create("DTextEntry", panel)
-            cooldown:Dock(TOP)
-            cooldown:DockMargin(0, 5, 0, 0)
-            cooldown:SetPlaceholderText("Cooldown (segundos)")
-            cooldown:SetValue(propData.cooldown)
-            cooldown.OnEnter = function(self)
-                local val = tonumber(self:GetValue()) or 1
-                if PropMovement.SelectedProps[entIndex] then
-                    PropMovement.SelectedProps[entIndex].cooldown = math.Clamp(val, 0.1, 60)
-                    self:SetValue(PropMovement.SelectedProps[entIndex].cooldown)
-                end
-            end
-            
-            -- Remove button
-            local remove = vgui.Create("DButton", panel)
-            remove:Dock(TOP)
-            remove:DockMargin(0, 5, 0, 0)
-            remove:SetText("Eliminar")
-            remove.DoClick = function()
-                if IsValid(propData.ent) then
-                    PropMovement.RemoveProp(propData.ent)
-                    UpdatePropsList()
+                
+                if removed > 0 then
+                    UpdateSelectedPropsUI()
                 end
             end
         end
+        panel.PropMovementInitialized = true
     end
-    
-    -- Clear all button
-    local clear = vgui.Create("DButton", panel)
-    clear:Dock(TOP)
-    clear:DockMargin(0, 5, 0, 0)
-    clear:SetText("Limpiar selección")
-    clear.DoClick = function()
-        PropMovement.ClearProps()
-        UpdatePropsList()
-    end
-    
-    -- Initial update
-    UpdatePropsList()
-    
-    -- Add some space
-    panel:AddControl("Label", { Text = "" })
-    
-    -- Help text
-    local help = vgui.Create("DLabel")
-    help:SetText("Instrucciones:\n- Click izquierdo: Seleccionar objeto\n- Click derecho: Mover objeto\n- Rueda del ratón: Acercar/alejar\n- Q/E: Rotar\n- R: Reiniciar posición")
-    help:SetTextColor(Color(0, 0, 0))
-    help:SizeToContents()
-    panel:AddItem(help)
 end
-
--- Handle prop selection on left click when tool is active
-hook.Add("KeyPress", "PropMovement_SelectProps", function(ply, key)
-    if key ~= IN_ATTACK then return end
-    if not IsFirstTimePredicted() then return end
-    
-    local wep = ply:GetActiveWeapon()
-    if not IsValid(wep) or wep:GetClass() ~= "gmod_tool" or wep:GetMode() ~= "propmovement" then return end
-    
-    local tr = util.TraceLine({
-        start = ply:EyePos(),
-        endpos = ply:EyePos() + ply:EyeAngles():Forward() * 10000,
-        filter = ply
-    })
-    
-    if IsValid(tr.Entity) and (tr.Entity:GetClass() == "prop_physics" or tr.Entity:GetClass() == "prop_dynamic") then
-        if PropMovement.AddProp(tr.Entity) then
-            -- Update the props list in the UI
-            local toolPanel = controlpanel.Get("propmovement")
-            if IsValid(toolPanel) then
-                PropMovement_UI(toolPanel)
-            end
-            -- Don't return true here, allow the attack to continue
-        end
-    end
-end)
