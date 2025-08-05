@@ -6,6 +6,8 @@ if SERVER then
     util.AddNetworkString("PropMovement_Config")
     util.AddNetworkString("PropMovement_Start")
     util.AddNetworkString("PropMovement_Stop")
+    util.AddNetworkString("PropMovement_StartAll")
+    util.AddNetworkString("PropMovement_StopAll")
 end
 
 -- Default settings

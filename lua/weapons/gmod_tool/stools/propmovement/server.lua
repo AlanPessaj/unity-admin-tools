@@ -210,6 +210,19 @@ timer.Create("PropMovement_Cleanup", 5, 0, CleanupInvalidProps)
 -- Recibir networks del cliente
 net.Receive("PropMovement_Config", ReceivePropConfig)
 net.Receive("PropMovement_Start", StartMovement)
+net.Receive("PropMovement_StopAll", function(len, ply)
+    for entID, _ in pairs(movingProps) do
+        StopPropMovement(entID)
+    end
+end)
+net.Receive("PropMovement_StartAll", function(len, ply)
+    for entID, config in pairs(propConfigs) do
+        local ent = Entity(entID)
+        if IsValid(ent) then
+            StartPropMovement(ent, config)
+        end
+    end
+end)
 net.Receive("PropMovement_Stop", function(len, ply)
     local entID = net.ReadInt(16)
     StopPropMovement(entID)

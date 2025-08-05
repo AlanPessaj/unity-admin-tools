@@ -326,26 +326,36 @@ function PropMovement_UI(panel)
     -- Limpiar panel
     panel:ClearControls()
     
+    -- Boton para iniciar todos los props
+    local startAll = vgui.Create("DButton")
+    startAll:SetText("Start All Props")
+    startAll:SetSize(100, 25)
+    startAll.DoClick = function()
+        net.Start("PropMovement_StartAll")
+        net.SendToServer()
+        surface.PlaySound("buttons/button14.wav")
+    end
+    panel:AddItem(startAll)
+
+    -- Boton para parar todos los props
+    local stopAll = vgui.Create("DButton")
+    stopAll:SetText("Stop All Props")
+    stopAll:SetSize(100, 25)
+    stopAll.DoClick = function()
+        net.Start("PropMovement_StopAll")
+        net.SendToServer()
+        surface.PlaySound("buttons/button14.wav")
+    end
+    panel:AddItem(stopAll)
+
     -- Botón para limpiar selección
     local clearBtn = vgui.Create("DButton")
     clearBtn:SetText("Clear All")
     clearBtn:SetSize(100, 25)
     clearBtn.DoClick = function()
         -- Crear una copia de la lista para evitar problemas de modificación durante la iteración
-        local propsToRemove = {}
-        for _, prop in ipairs(selectedProps) do
-            if IsValid(prop) then
-                table.insert(propsToRemove, prop)
-            end
-        end
-        
-        -- Detener todos los movimientos primero
-        for _, prop in ipairs(propsToRemove) do
-            net.Start("PropMovement_Stop")
-            net.WriteInt(prop:EntIndex(), 16)
-            net.SendToServer()
-        end
-        
+        net.Start("PropMovement_StopAll")
+        net.SendToServer()
         -- Limpiar todas las configuraciones y la lista
         selectedProps = {}
         propConfigs = {}
