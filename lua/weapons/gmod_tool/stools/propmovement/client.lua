@@ -331,11 +331,29 @@ function PropMovement_UI(panel)
     clearBtn:SetText("Clear All")
     clearBtn:SetSize(100, 25)
     clearBtn.DoClick = function()
+        -- Crear una copia de la lista para evitar problemas de modificación durante la iteración
+        local propsToRemove = {}
+        for _, prop in ipairs(selectedProps) do
+            if IsValid(prop) then
+                table.insert(propsToRemove, prop)
+            end
+        end
+        
+        -- Detener todos los movimientos primero
+        for _, prop in ipairs(propsToRemove) do
+            net.Start("PropMovement_Stop")
+            net.WriteInt(prop:EntIndex(), 16)
+            net.SendToServer()
+        end
+        
+        -- Limpiar todas las configuraciones y la lista
         selectedProps = {}
         propConfigs = {}
+        
         UpdatePropsList()
         surface.PlaySound("buttons/button15.wav")
     end
+
     panel:AddItem(clearBtn)
     
     -- Panel con lista de props seleccionados
