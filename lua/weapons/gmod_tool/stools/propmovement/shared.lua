@@ -1,6 +1,13 @@
 -- Shared variables and functions for PropMovement
 PropMovement = PropMovement or {}
 
+-- Network strings
+if SERVER then
+    util.AddNetworkString("PropMovement_Config")
+    util.AddNetworkString("PropMovement_Start")
+    util.AddNetworkString("PropMovement_Stop")
+end
+
 -- Default settings
 PropMovement.Settings = {
     MoveSpeed = 10,

@@ -1,2 +1,206 @@
--- Servidor para la herramienta PropMovement
--- Este archivo está intencionalmente en blanco ya que no se requiere lógica de servidor en este momento
+-- PropMovement Server Side
+-- Tabla para almacenar props en movimiento y sus configuraciones
+local movingProps = {}
+local propConfigs = {}
+
+-- Funciones de utilidad para convertir direcciones a vectores
+local function GetDirectionVector(direction)
+    local vectors = {
+        ["UP"] = Vector(0, 0, 1),
+        ["DOWN"] = Vector(0, 0, -1),
+        ["LEFT"] = Vector(0, -1, 0),
+        ["RIGHT"] = Vector(0, 1, 0),
+        ["BACK"] = Vector(-1, 0, 0),
+        ["FORWARD"] = Vector(1, 0, 0)
+    }
+    return vectors[direction] or Vector(0, 0, 1)
+end
+
+-- Función para hacer pausa en corrutina
+local function wait(seconds)
+    local startTime = CurTime()
+    while CurTime() - startTime < seconds do
+        coroutine.yield()
+    end
+end
+
+-- Función para mover un prop
+local function MoveProp(ent, config)
+    if not IsValid(ent) then return end
+    
+    local entID = ent:EntIndex()
+    if movingProps[entID] then return end -- Ya se está moviendo
+    
+    -- Obtener posición inicial y calcular posición final
+    local startPos = ent:GetPos()
+    local direction = GetDirectionVector(config.direction)
+    local endPos = startPos + (direction * config.distance)
+    
+    -- Crear tabla de información de movimiento
+    movingProps[entID] = {
+        entity = ent,
+        startPos = startPos,
+        endPos = endPos,
+        startTime = CurTime(),
+        duration = config.time,
+        cooldown = config.cooldown,
+        returning = false,
+        lastMove = 0
+    }
+    
+    print("[PropMovement] Starting movement for prop " .. entID)
+end
+
+-- Función para procesar el movimiento de todos los props
+local function ProcessMovingProps()
+    for entID, moveData in pairs(movingProps) do
+        -- Ejecutar cada movimiento como corrutina
+        if not moveData.coroutine or coroutine.status(moveData.coroutine) == "dead" then
+            moveData.coroutine = coroutine.create(function()
+                MovePropCoroutine(entID, moveData)
+            end)
+        end
+        if coroutine.status(moveData.coroutine) == "suspended" then
+            local ok, err = coroutine.resume(moveData.coroutine)
+            if not ok then
+                print("[PropMovement] Coroutine error for prop " .. entID .. ": " .. tostring(err))
+                movingProps[entID] = nil
+            end
+        end
+    end
+end
+
+function MovePropCoroutine(entID, moveData)
+    local ent = moveData.entity
+    
+    if not IsValid(ent) then
+        movingProps[entID] = nil
+        return
+    end
+    
+    while IsValid(ent) do
+        -- Movimiento hacia adelante
+        local startTime = CurTime()
+        while CurTime() - startTime < moveData.duration do
+            local progress = (CurTime() - startTime) / moveData.duration
+            progress = math.sin(progress * math.pi * 0.5) -- Easing out
+            local newPos = LerpVector(progress, moveData.startPos, moveData.endPos)
+            ent:SetPos(newPos)
+            coroutine.yield() -- Pausa para el siguiente frame
+        end
+        
+        -- Asegurar posición final
+        ent:SetPos(moveData.endPos)
+        
+        -- Aplicar cooldown después del movimiento hacia adelante
+        if moveData.cooldown > 0 then
+            wait(moveData.cooldown)
+        end
+        
+        -- Movimiento de regreso
+        startTime = CurTime()
+        while CurTime() - startTime < moveData.duration do
+            local progress = (CurTime() - startTime) / moveData.duration
+            progress = math.sin(progress * math.pi * 0.5) -- Easing out
+            local newPos = LerpVector(progress, moveData.endPos, moveData.startPos)
+            ent:SetPos(newPos)
+            coroutine.yield()
+        end
+        
+        -- Asegurar posición inicial
+        ent:SetPos(moveData.startPos)
+        
+        -- Aplicar cooldown después del movimiento de regreso
+        if moveData.cooldown > 0 then
+            wait(moveData.cooldown)
+        end
+    end
+    
+    -- Limpiar cuando termine
+    movingProps[entID] = nil
+end
+
+-- Función para iniciar el movimiento con cooldown
+local function StartPropMovement(ent, config)
+    if not IsValid(ent) then return end
+    
+    local entID = ent:EntIndex()
+    local moveData = movingProps[entID]
+    
+    if moveData then
+        -- Verificar cooldown
+        if moveData.lastMove > 0 and CurTime() < moveData.startTime then
+            return -- Aún en cooldown
+        end
+    end
+    
+    -- Iniciar movimiento
+    MoveProp(ent, config)
+end
+
+-- Función para recibir configuración del cliente
+local function ReceivePropConfig(len, ply)
+    local entID = net.ReadInt(16)
+    local config = net.ReadTable()
+    
+    local ent = Entity(entID)
+    if not IsValid(ent) then return end
+    
+    -- Verificar permisos del jugador (opcional)
+    -- if not ply:IsSuperAdmin() then return end
+    
+    propConfigs[entID] = config
+    propConfigs[entID].entity = ent
+    
+    print("[PropMovement] Received config for prop " .. entID .. " from " .. ply:Nick())
+end
+
+-- Función para iniciar movimiento desde el cliente
+local function StartMovement(len, ply)
+    local entID = net.ReadInt(16)
+    local ent = Entity(entID)
+    
+    if not IsValid(ent) then return end
+    
+    local config = propConfigs[entID]
+    if not config then return end
+    
+    StartPropMovement(ent, config)
+end
+
+-- Función para detener el movimiento de un prop
+local function StopPropMovement(entID)
+    if movingProps[entID] then
+        local moveData = movingProps[entID]
+        local ent = Entity(entID)
+        if IsValid(ent) and moveData and moveData.startPos then
+            ent:SetPos(moveData.startPos)
+        end
+        movingProps[entID] = nil
+        propConfigs[entID] = nil
+    end
+end
+
+-- Función para limpiar props eliminados
+local function CleanupInvalidProps()
+    for entID, config in pairs(propConfigs) do
+        if not IsValid(config.entity) then
+            propConfigs[entID] = nil
+            movingProps[entID] = nil
+        end
+    end
+end
+
+-- Hook para procesar movimientos cada tick
+hook.Add("Think", "PropMovement_ProcessMoving", ProcessMovingProps)
+
+-- Hook para limpiar props inválidos periódicamente
+timer.Create("PropMovement_Cleanup", 5, 0, CleanupInvalidProps)
+
+-- Recibir networks del cliente
+net.Receive("PropMovement_Config", ReceivePropConfig)
+net.Receive("PropMovement_Start", StartMovement)
+net.Receive("PropMovement_Stop", function(len, ply)
+    local entID = net.ReadInt(16)
+    StopPropMovement(entID)
+end)

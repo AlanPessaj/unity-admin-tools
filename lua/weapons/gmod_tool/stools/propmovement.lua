@@ -36,7 +36,7 @@ end
 -- Client files
 if CLIENT then
     language.Add("tool.propmovement.name", "[CGO] PropMovement")
-    language.Add("tool.propmovement.desc", "Herramienta para mover props")
+    language.Add("tool.propmovement.desc", "Creado por AlanPessaj ◢ ◤")
     language.Add("tool.propmovement.0", "Configura las opciones en el menú de la herramienta.")
     
     -- Include client files
