@@ -376,7 +376,7 @@ function PropMovement_UI(panel)
     
     -- Panel scrolleable para la lista
     propsListPanel = vgui.Create("DScrollPanel")
-    propsListPanel:SetTall(850)
+    propsListPanel:SetTall(780)
     panel:AddItem(propsListPanel)
     
     -- Actualizar lista inicial
