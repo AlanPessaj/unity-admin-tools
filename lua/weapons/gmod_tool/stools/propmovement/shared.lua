@@ -31,15 +31,18 @@ PropMovement.Directions = {
 
 -- Permissions
 function PropMovement.HasPermission(ply)
-    if not IsValid(ply) then return false end
+    if not IsValid(ply) or not ply.GetUserGroup then return false end
     
+    -- Lista de rangos que tienen acceso (misma que GunGame)
     local allowedRanks = {
         ["superadmin"] = true,
-        ["admin"] = true,
-        ["moderator"] = true,
-        ["operator"] = true
+        ["moderadorelite"] = true,
+        ["moderadorsenior"] = true,
+        ["directormods"] = true,
+        ["ejecutivo"] = true
     }
     
+    -- Verificar si el jugador tiene uno de los rangos permitidos
     return ply:IsSuperAdmin() or (allowedRanks[ply:GetUserGroup():lower()] == true)
 end
 

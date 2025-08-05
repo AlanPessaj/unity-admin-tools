@@ -147,14 +147,14 @@ end
 
 -- Función para recibir configuración del cliente
 local function ReceivePropConfig(len, ply)
+    -- Verificar permisos del jugador
+    if not PropMovement.HasPermission(ply) then return end
+    
     local entID = net.ReadInt(16)
     local config = net.ReadTable()
     
     local ent = Entity(entID)
     if not IsValid(ent) then return end
-    
-    -- Verificar permisos del jugador (opcional)
-    -- if not ply:IsSuperAdmin() then return end
     
     propConfigs[entID] = config
     propConfigs[entID].entity = ent
@@ -162,6 +162,9 @@ end
 
 -- Función para iniciar movimiento desde el cliente
 local function StartMovement(len, ply)
+    -- Verificar permisos del jugador
+    if not PropMovement.HasPermission(ply) then return end
+    
     local entID = net.ReadInt(16)
     local ent = Entity(entID)
     
@@ -206,11 +209,17 @@ timer.Create("PropMovement_Cleanup", 5, 0, CleanupInvalidProps)
 net.Receive("PropMovement_Config", ReceivePropConfig)
 net.Receive("PropMovement_Start", StartMovement)
 net.Receive("PropMovement_StopAll", function(len, ply)
+    -- Verificar permisos del jugador
+    if not PropMovement.HasPermission(ply) then return end
+    
     for entID, _ in pairs(movingProps) do
         StopPropMovement(entID)
     end
 end)
 net.Receive("PropMovement_StartAll", function(len, ply)
+    -- Verificar permisos del jugador
+    if not PropMovement.HasPermission(ply) then return end
+    
     for entID, config in pairs(propConfigs) do
         local ent = Entity(entID)
         if IsValid(ent) then
@@ -219,6 +228,9 @@ net.Receive("PropMovement_StartAll", function(len, ply)
     end
 end)
 net.Receive("PropMovement_Stop", function(len, ply)
+    -- Verificar permisos del jugador
+    if not PropMovement.HasPermission(ply) then return end
+    
     local entID = net.ReadInt(16)
     StopPropMovement(entID)
 end)
