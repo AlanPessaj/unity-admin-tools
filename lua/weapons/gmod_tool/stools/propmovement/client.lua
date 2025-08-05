@@ -1,175 +1,174 @@
--- Tabla para almacenar los props seleccionados con información adicional
+-- PropMovement Client Side
+-- Variables globales para almacenar props seleccionados
 local selectedProps = {}
-local selectedPropsPanel = nil
-local mainPanel = nil
+local propsListPanel = nil
 
--- Función para obtener un nombre descriptivo del prop
-local function GetPropDisplayName(ent)
-    if not IsValid(ent) then return "Invalid Entity" end
+-- Función para obtener nombre descriptivo del prop
+local function GetPropName(ent)
+    if not IsValid(ent) then return "Invalid" end
     
     local model = ent:GetModel() or "unknown"
-    local modelName = string.GetFileFromFilename(model)
-    local entIndex = ent:EntIndex()
+    local fileName = string.GetFileFromFilename(model)
+    local entID = ent:EntIndex()
     
-    return string.format("%s (ID: %d)", modelName, entIndex)
+    return string.format("%s [%d]", fileName, entID)
 end
 
--- Función para actualizar la lista de props en la UI
-local function UpdateSelectedPropsUI()
-    if not IsValid(selectedPropsPanel) then return end
-    
-    -- Limpiar la lista actual
-    selectedPropsPanel:Clear()
-    
-    -- Limpiar props inválidos de la lista primero
+-- Función para verificar si un prop ya está seleccionado
+local function IsAlreadySelected(ent)
+    for _, prop in ipairs(selectedProps) do
+        if IsValid(prop) and prop == ent then
+            return true
+        end
+    end
+    return false
+end
+
+-- Función para limpiar props inválidos de la lista
+local function CleanInvalidProps()
     for i = #selectedProps, 1, -1 do
-        if not IsValid(selectedProps[i].entity) then
+        if not IsValid(selectedProps[i]) then
             table.remove(selectedProps, i)
         end
+    end
+end
+
+-- Función para actualizar la lista visual de props
+local function UpdatePropsList()
+    if not IsValid(propsListPanel) then return end
+    
+    -- Limpiar lista actual
+    propsListPanel:Clear()
+    
+    -- Limpiar props inválidos
+    CleanInvalidProps()
+    
+    -- Mostrar mensaje si no hay props
+    if #selectedProps == 0 then
+        local noPropsLabel = propsListPanel:Add("DLabel")
+        noPropsLabel:SetText("No props selected")
+        noPropsLabel:Dock(TOP)
+        noPropsLabel:SetTextColor(Color(128, 128, 128))
+        noPropsLabel:DockMargin(5, 5, 5, 2)
+        return
     end
     
     -- Agregar cada prop a la lista
-    if #selectedProps == 0 then
-        local noPropsLabel = selectedPropsPanel:Add("DLabel")
-        noPropsLabel:SetText("No props selected")
-        noPropsLabel:Dock(TOP)
-        noPropsLabel:SetTextColor(Color(100, 100, 100))
-        noPropsLabel:DockMargin(5, 2, 5, 2)
-        noPropsLabel:SizeToContents()
-    else
-        for i, propData in ipairs(selectedProps) do
-            if IsValid(propData.entity) then
-                local label = selectedPropsPanel:Add("DLabel")
-                label:SetText(string.format("%d. %s", i, propData.displayName))
-                label:Dock(TOP)
-                label:SetTextColor(Color(0, 0, 0))
-                label:DockMargin(5, 2, 5, 2)
-                label:SizeToContents()
-            end
+    for i, prop in ipairs(selectedProps) do
+        if IsValid(prop) then
+            local propLabel = propsListPanel:Add("DLabel")
+            propLabel:SetText(string.format("%d. %s", i, GetPropName(prop)))
+            propLabel:Dock(TOP)
+            propLabel:SetTextColor(Color(0, 0, 0))
+            propLabel:DockMargin(5, 2, 5, 2)
         end
-    end
-    
-    -- Actualizar el contador en el header
-    if IsValid(mainPanel) and IsValid(mainPanel.headerLabel) then
-        mainPanel.headerLabel:SetText(string.format("Selected Props (%d):", #selectedProps))
-        mainPanel.headerLabel:SizeToContents()
     end
 end
 
--- Función para manejar la selección de props
-local function SelectProp(ent)
-    if not IsValid(ent) or ent:GetClass() ~= "prop_physics" then 
-        return false 
+-- Función principal del click izquierdo
+function TOOL:LeftClick(tr)
+    if not IsFirstTimePredicted() then return false end
+    
+    -- Verificar que sea un prop válido
+    if not IsValid(tr.Entity) or tr.Entity:GetClass() ~= "prop_physics" then
+        return false
     end
     
-    -- Verificar si el prop ya está en la lista
-    for i, propData in ipairs(selectedProps) do
-        if not IsValid(propData.entity) then
-            -- Remover props inválidos
-            table.remove(selectedProps, i)
-        elseif propData.entity == ent then
-            -- Ya existe
-            return false
-        end
+    -- Crear efecto visual del rayo
+    local effectData = EffectData()
+    effectData:SetOrigin(tr.HitPos)
+    effectData:SetStart(self:GetOwner():GetShootPos())
+    effectData:SetAttachment(1)
+    effectData:SetEntity(self:GetOwner())
+    util.Effect("ToolTracer", effectData)
+    
+    -- Verificar si ya está seleccionado
+    if IsAlreadySelected(tr.Entity) then
+        surface.PlaySound("buttons/button10.wav") -- Sonido de error
+        return false
     end
     
-    -- Agregar el prop a la lista
-    local propData = {
-        entity = ent,
-        displayName = GetPropDisplayName(ent),
-        model = ent:GetModel(),
-        entIndex = ent:EntIndex()
-    }
+    -- Agregar prop a la lista
+    table.insert(selectedProps, tr.Entity)
+    surface.PlaySound("buttons/button14.wav") -- Sonido de éxito
     
-    table.insert(selectedProps, propData)
-    surface.PlaySound("buttons/button14.wav")
+    -- Actualizar UI
+    UpdatePropsList()
+    
     return true
 end
 
--- Función para el clic izquierdo
-function TOOL:LeftClick(tr)
-    if not IsFirstTimePredicted() then return false end
-    if not IsValid(tr.Entity) or tr.Entity:GetClass() ~= "prop_physics" then 
-        return false 
-    end
-    
-    -- Crear el efecto del rayo de la toolgun
-    local effectdata = EffectData()
-    effectdata:SetOrigin(tr.HitPos)
-    effectdata:SetStart(self:GetOwner():GetShootPos())
-    effectdata:SetAttachment(1)
-    effectdata:SetEntity(self:GetOwner())
-    util.Effect("ToolTracer", effectdata)
-    
-    -- Seleccionar el prop
-    local success = SelectProp(tr.Entity)
-    
-    -- Actualizar la UI
-    UpdateSelectedPropsUI()
-    
-    return success
-end
-
--- Global UI function that will be called by the tool
+-- Función para crear la interfaz de usuario
 function PropMovement_UI(panel)
-    -- Clear the panel first
+    -- Limpiar panel
     panel:ClearControls()
-    mainPanel = panel
     
-    -- Header con contador
-    local headerLabel = vgui.Create("DLabel")
-    headerLabel:SetText(string.format("Selected Props (%d):", #selectedProps))
-    headerLabel:SetFont("DermaDefaultBold")
-    headerLabel:SetTextColor(Color(0, 0, 0))
-    headerLabel:SizeToContents()
-    panel:AddItem(headerLabel)
-    mainPanel.headerLabel = headerLabel
+    -- Título
+    local titleLabel = vgui.Create("DLabel")
+    titleLabel:SetText("PropMovement Tool")
+    titleLabel:SetFont("DermaDefaultBold")
+    titleLabel:SetTextColor(Color(0, 0, 0))
+    titleLabel:SizeToContents()
+    panel:AddItem(titleLabel)
     
     -- Instrucciones
-    local instructionLabel = vgui.Create("DLabel")
-    instructionLabel:SetText("Left click on props to select them")
-    instructionLabel:SetTextColor(Color(60, 60, 60))
-    instructionLabel:SizeToContents()
-    panel:AddItem(instructionLabel)
+    local instructLabel = vgui.Create("DLabel")
+    instructLabel:SetText("Left click on props to select them")
+    instructLabel:SetTextColor(Color(64, 64, 64))
+    instructLabel:SizeToContents()
+    panel:AddItem(instructLabel)
+    
+    -- Contador de props
+    local countLabel = vgui.Create("DLabel")
+    countLabel:SetText(string.format("Selected: %d props", #selectedProps))
+    countLabel:SetTextColor(Color(0, 100, 0))
+    countLabel:SizeToContents()
+    panel:AddItem(countLabel)
     
     -- Botón para limpiar selección
-    local clearButton = vgui.Create("DButton")
-    clearButton:SetText("Clear All")
-    clearButton.DoClick = function()
+    local clearBtn = vgui.Create("DButton")
+    clearBtn:SetText("Clear All")
+    clearBtn:SetSize(100, 25)
+    clearBtn.DoClick = function()
         selectedProps = {}
-        UpdateSelectedPropsUI()
+        UpdatePropsList()
+        countLabel:SetText("Selected: 0 props")
         surface.PlaySound("buttons/button15.wav")
     end
-    panel:AddItem(clearButton)
+    panel:AddItem(clearBtn)
     
-    -- Panel para la lista de props
-    selectedPropsPanel = vgui.Create("DScrollPanel")
-    selectedPropsPanel:SetTall(200)
-    panel:AddItem(selectedPropsPanel)
+    -- Panel con lista de props seleccionados
+    local listHeader = vgui.Create("DLabel")
+    listHeader:SetText("Selected Props:")
+    listHeader:SetFont("DermaDefaultBold")
+    listHeader:SetTextColor(Color(0, 0, 0))
+    listHeader:SizeToContents()
+    panel:AddItem(listHeader)
     
-    -- Actualizar la UI con los props ya seleccionados
-    UpdateSelectedPropsUI()
+    -- Panel scrolleable para la lista
+    propsListPanel = vgui.Create("DScrollPanel")
+    propsListPanel:SetTall(150)
+    panel:AddItem(propsListPanel)
     
-    -- Timer para limpiar props inválidos automáticamente
-    if not panel.PropMovementInitialized then
+    -- Actualizar lista inicial
+    UpdatePropsList()
+    
+    -- Timer para actualizar automáticamente
+    if not panel.PropMovementTimer then
+        panel.PropMovementTimer = true
         panel.Think = function()
-            -- Verificar cada 2 segundos
-            if (panel.NextCheck or 0) < CurTime() then
-                panel.NextCheck = CurTime() + 2
+            if (panel.NextUpdate or 0) < CurTime() then
+                panel.NextUpdate = CurTime() + 1 -- Actualizar cada segundo
                 
-                local removed = 0
-                for i = #selectedProps, 1, -1 do
-                    if not IsValid(selectedProps[i].entity) then
-                        table.remove(selectedProps, i)
-                        removed = removed + 1
-                    end
-                end
+                -- Limpiar props inválidos y actualizar contador
+                local oldCount = #selectedProps
+                CleanInvalidProps()
                 
-                if removed > 0 then
-                    UpdateSelectedPropsUI()
+                if #selectedProps ~= oldCount then
+                    UpdatePropsList()
+                    countLabel:SetText(string.format("Selected: %d props", #selectedProps))
                 end
             end
         end
-        panel.PropMovementInitialized = true
     end
 end
