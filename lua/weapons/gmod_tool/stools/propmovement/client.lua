@@ -286,14 +286,6 @@ function TOOL:LeftClick(tr)
         return false
     end
     
-    -- Crear efecto visual del rayo
-    local effectData = EffectData()
-    effectData:SetOrigin(tr.HitPos)
-    effectData:SetStart(self:GetOwner():GetShootPos())
-    effectData:SetAttachment(1)
-    effectData:SetEntity(self:GetOwner())
-    util.Effect("ToolTracer", effectData)
-    
     -- Verificar si ya está seleccionado
     if IsAlreadySelected(tr.Entity) then
         surface.PlaySound("buttons/button10.wav") -- Sonido de error

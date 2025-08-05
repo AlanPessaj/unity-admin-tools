@@ -167,7 +167,7 @@ end
 -- Network receive handler for game options
 net.Receive("gungame_options", function(len, ply)
     if not HasGunGameAccess(ply) then 
-        ply:ChatPrint("Error: No tienes permisos para modificar las opciones.")
+        ply:ChatPrint("Error: No tienes permisos para usar esta herramienta.")
         return 
     end
     
@@ -352,7 +352,7 @@ end)
 
 net.Receive("gungame_area_clear", function(_, ply)
     if not HasGunGameAccess(ply) then 
-        ply:ChatPrint("Error: No tienes permisos para limpiar el área.")
+        ply:ChatPrint("Error: No tienes permisos para usar esta herramienta.")
         return 
     end
     
@@ -388,7 +388,7 @@ end
 
 net.Receive("gungame_start_event", function(_, ply)
     if not HasGunGameAccess(ply) then 
-        ply:ChatPrint("Error: No tienes permisos para iniciar el evento.")
+        ply:ChatPrint("Error: No tienes permisos para usar esta herramienta.")
         return 
     end
     
@@ -662,7 +662,7 @@ end)
 
 net.Receive("gungame_stop_event", function(_, ply)
     if not HasGunGameAccess(ply) then 
-        ply:ChatPrint("Error: No tienes permisos para detener el evento.")
+        ply:ChatPrint("Error: No tienes permisos para usar esta herramienta.")
         return 
     end
     for steamid64, data in pairs(gungame_players) do
@@ -1096,7 +1096,7 @@ end
 -- Spawn points network handlers
 net.Receive("gungame_add_spawnpoint", function(_, ply)
     if not HasGunGameAccess(ply) then 
-        ply:ChatPrint("Error: No tienes permisos para añadir puntos de aparición.")
+        ply:ChatPrint("Error: No tienes permisos para usar esta herramienta.")
         return 
     end
 
@@ -1127,7 +1127,7 @@ end)
 
 net.Receive("gungame_clear_spawnpoints", function(_, ply)
     if not HasGunGameAccess(ply) then 
-        ply:ChatPrint("Error: No tienes permisos para limpiar los puntos de aparición.")
+        ply:ChatPrint("Error: No tienes permisos para usar esta herramienta.")
         return 
     end
     
