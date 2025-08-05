@@ -3,17 +3,27 @@
 local movingProps = {}
 local propConfigs = {}
 
--- Funciones de utilidad para convertir direcciones a vectores
-local function GetDirectionVector(direction)
-    local vectors = {
-        ["UP"] = Vector(0, 0, 1),
-        ["DOWN"] = Vector(0, 0, -1),
-        ["LEFT"] = Vector(0, -1, 0),
-        ["RIGHT"] = Vector(0, 1, 0),
-        ["BACK"] = Vector(-1, 0, 0),
-        ["FORWARD"] = Vector(1, 0, 0)
+-- Funciones de utilidad para convertir direcciones a vectores locales
+local function GetLocalDirectionVector(direction, entity)
+    if not IsValid(entity) then
+        return Vector(0, 0, 1)
+    end
+    
+    -- Obtener los vectores de dirección local del prop
+    local forward = entity:GetForward()
+    local right = entity:GetRight()
+    local up = entity:GetUp()
+    
+    local directions = {
+        ["FORWARD"] = forward,
+        ["BACK"] = -forward,
+        ["RIGHT"] = right,
+        ["LEFT"] = -right,
+        ["UP"] = up,
+        ["DOWN"] = -up
     }
-    return vectors[direction] or Vector(0, 0, 1)
+    
+    return directions[direction] or up
 end
 
 -- Función para hacer pausa en corrutina
@@ -31,9 +41,9 @@ local function MoveProp(ent, config)
     local entID = ent:EntIndex()
     if movingProps[entID] then return end -- Ya se está moviendo
     
-    -- Obtener posición inicial y calcular posición final
+    -- Obtener posición inicial y calcular posición final usando coordenadas locales
     local startPos = ent:GetPos()
-    local direction = GetDirectionVector(config.direction)
+    local direction = GetLocalDirectionVector(config.direction, ent)
     local endPos = startPos + (direction * config.distance)
     
     -- Crear tabla de información de movimiento
