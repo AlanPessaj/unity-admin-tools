@@ -57,8 +57,6 @@ local function MoveProp(ent, config)
         returning = false,
         lastMove = 0
     }
-    
-    print("[PropMovement] Starting movement for prop " .. entID)
 end
 
 -- Función para procesar el movimiento de todos los props
@@ -73,7 +71,6 @@ local function ProcessMovingProps()
         if coroutine.status(moveData.coroutine) == "suspended" then
             local ok, err = coroutine.resume(moveData.coroutine)
             if not ok then
-                print("[PropMovement] Coroutine error for prop " .. entID .. ": " .. tostring(err))
                 movingProps[entID] = nil
             end
         end
@@ -161,8 +158,6 @@ local function ReceivePropConfig(len, ply)
     
     propConfigs[entID] = config
     propConfigs[entID].entity = ent
-    
-    print("[PropMovement] Received config for prop " .. entID .. " from " .. ply:Nick())
 end
 
 -- Función para iniciar movimiento desde el cliente

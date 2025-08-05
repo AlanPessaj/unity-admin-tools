@@ -29,7 +29,7 @@ local function InitPropConfig(ent)
             direction = "UP",
             distance = 100,
             time = 2,
-            cooldown = 5
+            cooldown = 1
         }
     end
 end
@@ -181,9 +181,9 @@ CreatePropConfigPanel = function(parent, prop, index)
     distLabel:SetTextColor(Color(0, 0, 0))
     
     local distSlider = innerPanel:Add("DNumSlider")
-    distSlider:SetPos(100, 40)
-    distSlider:SetSize(120, 20)
-    distSlider:SetMin(10)
+    distSlider:SetPos(-100, 38)
+    distSlider:SetSize(400, 20)
+    distSlider:SetMin(1)
     distSlider:SetMax(1000)
     distSlider:SetDecimals(0)
     distSlider:SetValue(config.distance)
@@ -193,14 +193,14 @@ CreatePropConfigPanel = function(parent, prop, index)
     
     -- Time NumSlider
     local timeLabel = innerPanel:Add("DLabel")
-    timeLabel:SetText("Time (s):")
+    timeLabel:SetText("Time:")
     timeLabel:SetPos(10, 70)
     timeLabel:SetSize(80, 20)
     timeLabel:SetTextColor(Color(0, 0, 0))
     
     local timeSlider = innerPanel:Add("DNumSlider")
-    timeSlider:SetPos(100, 70)
-    timeSlider:SetSize(120, 20)
+    timeSlider:SetPos(-100, 68)
+    timeSlider:SetSize(400, 20)
     timeSlider:SetMin(0.1)
     timeSlider:SetMax(30)
     timeSlider:SetDecimals(1)
@@ -211,14 +211,14 @@ CreatePropConfigPanel = function(parent, prop, index)
     
     -- Cooldown NumSlider
     local coolLabel = innerPanel:Add("DLabel")
-    coolLabel:SetText("Cooldown (s):")
+    coolLabel:SetText("Cooldown:")
     coolLabel:SetPos(10, 100)
     coolLabel:SetSize(80, 20)
     coolLabel:SetTextColor(Color(0, 0, 0))
     
     local coolSlider = innerPanel:Add("DNumSlider")
-    coolSlider:SetPos(100, 100)
-    coolSlider:SetSize(120, 20)
+    coolSlider:SetPos(-100, 98)
+    coolSlider:SetSize(400, 20)
     coolSlider:SetMin(0)
     coolSlider:SetMax(60)
     coolSlider:SetDecimals(1)
@@ -230,8 +230,8 @@ CreatePropConfigPanel = function(parent, prop, index)
     -- Botón Eliminar
     local removeBtn = innerPanel:Add("DButton")
     removeBtn:SetText("Remove Prop")
-    removeBtn:SetPos(10, 130)
-    removeBtn:SetSize(100, 25)
+    removeBtn:SetPos(190, 130)
+    removeBtn:SetSize(90, 25)
     removeBtn.DoClick = function()
         -- Detener movimiento antes de eliminar
         net.Start("PropMovement_Stop")
@@ -246,8 +246,8 @@ CreatePropConfigPanel = function(parent, prop, index)
     -- Botón Start Movement
     local startBtn = innerPanel:Add("DButton")
     startBtn:SetText("Start Movement")
-    startBtn:SetPos(120, 130)
-    startBtn:SetSize(100, 25)
+    startBtn:SetPos(0, 130)
+    startBtn:SetSize(90, 25)
     startBtn.DoClick = function()
         -- Enviar configuración actualizada y iniciar movimiento
         net.Start("PropMovement_Config")
@@ -266,8 +266,8 @@ CreatePropConfigPanel = function(parent, prop, index)
     -- Botón Stop Movement
     local stopBtn = innerPanel:Add("DButton")
     stopBtn:SetText("Stop Movement")
-    stopBtn:SetPos(10, 160)
-    stopBtn:SetSize(100, 25)
+    stopBtn:SetPos(95, 130)
+    stopBtn:SetSize(90, 25)
     stopBtn.DoClick = function()
         net.Start("PropMovement_Stop")
         net.WriteInt(prop:EntIndex(), 16)
