@@ -1,0 +1,5 @@
+"VertexlitGeneric"
+{
+	"$basetexture" "models/flag/mtl_flag"
+	"$nocull" "1"
+}

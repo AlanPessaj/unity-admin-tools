@@ -1,0 +1,11 @@
+"AddonInfo"
+{
+	"name"		"Unity Admin Tools"
+	"version"	"1.0"
+	"up_date"	"0"
+	"author_name"	"AlanPessaj ◢ ◤"
+	"author_email"	""
+	"author_url"	""
+	"info"		"Herramientas para eventos en Clan Game Over"
+	"override"	"0"
+}

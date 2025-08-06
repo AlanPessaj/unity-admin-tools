@@ -1,0 +1,33 @@
+"VertexlitGeneric"
+{
+	"$basetexture" "models/flag/mtl_flag2"
+	"$bumpmap"     "models/flag/mtl_flag_n"
+
+	"$phong" "1"
+	"$phongboost" "0"
+	"$phongexponent" "10"
+	"$phongfresnelranges" "[2 1.2 8]"
+	"$phongalbedotint" "1"
+	"$normalmapalphaenvmapmask" "1"
+
+	"$detail" "models/flag/mtl_flag_s"    
+	"$detailscale" "1"        
+	"$detailblendfactor" "0.15"     
+	"$detailblendmode" "0.5"
+
+
+
+	"$phongexponenttexture" "models/flag/mtl_flag_s"
+
+
+	"$cloakPassEnabled" 		"1"				
+	"$nocull" "1"
+
+
+	"$alphatest"	"1"
+	"$alphatestreference"	"0.5"
+	"$ambientocclusion"	"0"
+
+
+
+}
