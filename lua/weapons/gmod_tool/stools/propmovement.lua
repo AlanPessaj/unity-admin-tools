@@ -32,6 +32,19 @@ local function HasPropMovementAccess(ply)
     return ply:IsSuperAdmin() or (allowedRanks[ply:GetUserGroup():lower()] == true)
 end
 
+function RankLevel(ply)
+    if not IsValid(ply) or not ply.GetUserGroup then return 0 end
+    local rankLevels = {
+        ["superadmin"] = 999,
+        ["moderadorelite"] = 2,
+        ["moderadorsenior"] = 4,
+        ["directormods"] = 10,
+        ["ejecutivo"] = 100
+    }
+
+    return rankLevels[ply:GetUserGroup():lower()] or 0
+end
+
 -- Función para verificar permisos
 function TOOL:CanTool(ply)
     return HasPropMovementAccess(ply)

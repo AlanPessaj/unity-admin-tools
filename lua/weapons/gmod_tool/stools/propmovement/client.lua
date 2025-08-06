@@ -325,7 +325,11 @@ end
 -- Función principal del click izquierdo
 function TOOL:LeftClick(tr)
     if not IsFirstTimePredicted() then return false end
-    
+    if RankLevel(self:GetOwner()) <= #selectedProps then
+        notification.AddLegacy( "You have reached the maximum number of props you can select.", NOTIFY_ERROR, 5 )
+        surface.PlaySound("buttons/button10.wav")
+        return false
+    end
     -- Verificar que sea un prop válido
     if not IsValid(tr.Entity) or tr.Entity:GetClass() ~= "prop_physics" then
         return false
