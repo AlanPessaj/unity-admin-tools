@@ -72,13 +72,56 @@ local function RemovePropConfig(ent)
     end
 end
 
--- Función para verificar si un prop ya está seleccionado
-local function IsAlreadySelected(ent)
+-- Variable para controlar la verificación del servidor
+local serverCheckPending = {}
+local pendingCallbacks = {}
+
+-- Función para verificar si un prop ya está seleccionado (solo localmente)
+local function IsAlreadySelectedLocal(ent)
     for _, prop in ipairs(selectedProps) do
         if IsValid(prop) and prop == ent then
             return true
         end
     end
+    return false
+end
+
+-- Función para verificar si un prop ya está seleccionado
+local function IsAlreadySelected(ent, callback)
+    -- Verificación local primero
+    if IsAlreadySelectedLocal(ent) then
+        if callback then callback(true) end
+        return true
+    end
+    
+    -- Si no hay callback, solo hacer verificación local (modo síncrono)
+    if not callback then
+        return false
+    end
+    
+    -- Si hay callback, verificar también en el servidor (modo asíncrono)
+    if IsValid(ent) then
+        local entID = ent:EntIndex()
+        
+        -- Si ya hay una verificación pendiente para esta entidad, agregar callback a la cola
+        if serverCheckPending[entID] then
+            if not pendingCallbacks[entID] then
+                pendingCallbacks[entID] = {}
+            end
+            table.insert(pendingCallbacks[entID], callback)
+            return false
+        end
+        
+        -- Marcar como pendiente y almacenar callback
+        serverCheckPending[entID] = true
+        pendingCallbacks[entID] = {callback}
+        
+        -- Solicitar verificación al servidor
+        net.Start("PropMovement_CheckServer")
+        net.WriteInt(entID, 16)
+        net.SendToServer()
+    end
+    
     return false
 end
 
@@ -286,32 +329,49 @@ function TOOL:LeftClick(tr)
         return false
     end
     
-    -- Verificar si ya está seleccionado
-    if IsAlreadySelected(tr.Entity) then
-        surface.PlaySound("buttons/button10.wav") -- Sonido de error
-        return false
-    end
-    
-    -- Agregar prop a la lista
-    table.insert(selectedProps, tr.Entity)
-    InitPropConfig(tr.Entity) -- Inicializar configuración del prop
-    
-    -- Enviar configuración inicial al servidor
-    local config = GetPropConfig(tr.Entity)
-    if config then
-        net.Start("PropMovement_Config")
-        net.WriteInt(tr.Entity:EntIndex(), 16)
-        net.WriteTable(config)
-        net.SendToServer()
-    end
-    
-    surface.PlaySound("buttons/button14.wav") -- Sonido de éxito
-    
-    -- Actualizar UI
-    UpdatePropsList()
+    -- Verificar si ya está seleccionado (con callback para manejar respuesta del servidor)
+    IsAlreadySelected(tr.Entity, function(isSelected)
+        if isSelected then
+            surface.PlaySound("buttons/button10.wav")
+            return
+        end
+        
+        -- Si no está seleccionado, agregarlo
+        table.insert(selectedProps, tr.Entity)
+        InitPropConfig(tr.Entity) -- Inicializar configuración del prop
+        
+        -- Enviar configuración inicial al servidor
+        local config = GetPropConfig(tr.Entity)
+        if config then
+            net.Start("PropMovement_Config")
+            net.WriteInt(tr.Entity:EntIndex(), 16)
+            net.WriteTable(config)
+            net.SendToServer()
+        end
+        
+        -- Actualizar UI
+        UpdatePropsList()
+    end)
     
     return true
 end
+
+-- Receptor para la respuesta del servidor sobre verificación de entidades
+net.Receive("PropMovement_ServerResponse", function()
+    local entID = net.ReadInt(16)
+    local existsInServer = net.ReadBool()
+    
+    -- Ejecutar todos los callbacks pendientes para esta entidad
+    if pendingCallbacks[entID] then
+        for _, callback in ipairs(pendingCallbacks[entID]) do
+            callback(existsInServer)
+        end
+    end
+    
+    -- Limpiar estado pendiente
+    serverCheckPending[entID] = nil
+    pendingCallbacks[entID] = nil
+end)
 
 -- Función para crear la interfaz de usuario
 function PropMovement_UI(panel)
@@ -323,8 +383,24 @@ function PropMovement_UI(panel)
     startAll:SetText("Start All Props")
     startAll:SetSize(100, 25)
     startAll.DoClick = function()
-        net.Start("PropMovement_StartAll")
-        net.SendToServer()
+        for _, prop in ipairs(selectedProps) do
+            if IsValid(prop) then
+                -- Enviar configuración actualizada antes de iniciar
+                local config = GetPropConfig(prop)
+                if config then
+                    net.Start("PropMovement_Config")
+                    net.WriteInt(prop:EntIndex(), 16)
+                    net.WriteTable(config)
+                    net.SendToServer()
+                end
+                
+                -- Iniciar movimiento
+                net.Start("PropMovement_Start")
+                net.WriteInt(prop:EntIndex(), 16)
+                net.SendToServer()
+            end
+        end
+
         surface.PlaySound("buttons/button14.wav")
     end
     panel:AddItem(startAll)
@@ -334,8 +410,13 @@ function PropMovement_UI(panel)
     stopAll:SetText("Stop All Props")
     stopAll:SetSize(100, 25)
     stopAll.DoClick = function()
-        net.Start("PropMovement_StopAll")
-        net.SendToServer()
+        for _, prop in ipairs(selectedProps) do
+            if IsValid(prop) then
+                net.Start("PropMovement_Stop")
+                net.WriteInt(prop:EntIndex(), 16)
+                net.SendToServer()
+            end
+        end
         surface.PlaySound("buttons/button14.wav")
     end
     panel:AddItem(stopAll)
@@ -345,10 +426,29 @@ function PropMovement_UI(panel)
     clearBtn:SetText("Clear All")
     clearBtn:SetSize(100, 25)
     clearBtn.DoClick = function()
-        -- Crear una copia de la lista para evitar problemas de modificación durante la iteración
-        net.Start("PropMovement_StopAll")
-        net.SendToServer()
-        -- Limpiar todas las configuraciones y la lista
+        -- Recopilar IDs de las entidades a limpiar
+        local entIDs = {}
+        for _, prop in ipairs(selectedProps) do
+            if IsValid(prop) then
+                table.insert(entIDs, prop:EntIndex())
+                -- Detener movimiento
+                net.Start("PropMovement_Stop")
+                net.WriteInt(prop:EntIndex(), 16)
+                net.SendToServer()
+            end
+        end
+        
+        -- Enviar lista al servidor para limpiar configuraciones
+        if #entIDs > 0 then
+            net.Start("PropMovement_ClearAll")
+            net.WriteUInt(#entIDs, 8)
+            for _, entID in ipairs(entIDs) do
+                net.WriteInt(entID, 16)
+            end
+            net.SendToServer()
+        end
+        
+        -- Limpiar listas locales
         selectedProps = {}
         propConfigs = {}
         

@@ -205,17 +205,58 @@ hook.Add("Think", "PropMovement_ProcessMoving", ProcessMovingProps)
 -- Hook para limpiar props inválidos periódicamente
 timer.Create("PropMovement_Cleanup", 5, 0, CleanupInvalidProps)
 
--- Recibir networks del cliente
-net.Receive("PropMovement_Config", ReceivePropConfig)
-net.Receive("PropMovement_Start", StartMovement)
-net.Receive("PropMovement_StopAll", function(len, ply)
+-- Función para verificar si una entidad ya está en el servidor
+local function CheckEntityInServer(len, ply)
     -- Verificar permisos del jugador
     if not PropMovement.HasPermission(ply) then return end
     
-    for entID, _ in pairs(movingProps) do
-        StopPropMovement(entID)
+    local entID = net.ReadInt(16)
+    local ent = Entity(entID)
+    
+    -- Verificar si la entidad existe en el servidor (configuraciones o en movimiento)
+    local existsInServer = propConfigs[entID] ~= nil or movingProps[entID] ~= nil
+    
+    -- Enviar respuesta al cliente
+    net.Start("PropMovement_ServerResponse")
+    net.WriteInt(entID, 16)
+    net.WriteBool(existsInServer)
+    net.Send(ply)
+end
+
+-- Función para limpiar todas las configuraciones de un jugador
+local function ClearAllProps(len, ply)
+    -- Verificar permisos del jugador
+    if not PropMovement.HasPermission(ply) then return end
+    
+    -- Leer la lista de entIDs que el cliente quiere limpiar
+    local entCount = net.ReadUInt(8)
+    local entIDs = {}
+    
+    for i = 1, entCount do
+        local entID = net.ReadInt(16)
+        table.insert(entIDs, entID)
     end
-end)
+    
+    -- Limpiar configuraciones y movimientos solo para las entidades del cliente
+    for _, entID in ipairs(entIDs) do
+        if propConfigs[entID] then
+            propConfigs[entID] = nil
+        end
+        if movingProps[entID] then
+            local ent = Entity(entID)
+            if IsValid(ent) and movingProps[entID].startPos then
+                ent:SetPos(movingProps[entID].startPos)
+            end
+            movingProps[entID] = nil
+        end
+    end
+end
+
+-- Recibir networks del cliente
+net.Receive("PropMovement_Config", ReceivePropConfig)
+net.Receive("PropMovement_Start", StartMovement)
+net.Receive("PropMovement_CheckServer", CheckEntityInServer)
+net.Receive("PropMovement_ClearAll", ClearAllProps)
 net.Receive("PropMovement_StartAll", function(len, ply)
     -- Verificar permisos del jugador
     if not PropMovement.HasPermission(ply) then return end
