@@ -252,11 +252,32 @@ local function ClearAllProps(len, ply)
     end
 end
 
+-- Función para eliminar una sola entidad
+local function RemoveSingleProp(len, ply)
+    -- Verificar permisos del jugador
+    if not PropMovement.HasPermission(ply) then return end
+    
+    local entID = net.ReadInt(16)
+    
+    -- Limpiar configuración y movimiento de la entidad específica
+    if propConfigs[entID] then
+        propConfigs[entID] = nil
+    end
+    if movingProps[entID] then
+        local ent = Entity(entID)
+        if IsValid(ent) and movingProps[entID].startPos then
+            ent:SetPos(movingProps[entID].startPos)
+        end
+        movingProps[entID] = nil
+    end
+end
+
 -- Recibir networks del cliente
 net.Receive("PropMovement_Config", ReceivePropConfig)
 net.Receive("PropMovement_Start", StartMovement)
 net.Receive("PropMovement_CheckServer", CheckEntityInServer)
 net.Receive("PropMovement_ClearAll", ClearAllProps)
+net.Receive("PropMovement_Remove", RemoveSingleProp)
 net.Receive("PropMovement_StartAll", function(len, ply)
     -- Verificar permisos del jugador
     if not PropMovement.HasPermission(ply) then return end

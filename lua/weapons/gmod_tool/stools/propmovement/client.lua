@@ -280,7 +280,9 @@ CreatePropConfigPanel = function(parent, prop, index)
         net.Start("PropMovement_Stop")
         net.WriteInt(prop:EntIndex(), 16)
         net.SendToServer()
-        
+        net.Start("PropMovement_Remove")
+        net.WriteInt(prop:EntIndex(), 16)
+        net.SendToServer()
         RemovePropConfig(prop)
         UpdatePropsList()
         surface.PlaySound("buttons/button15.wav")
@@ -352,6 +354,43 @@ function TOOL:LeftClick(tr)
         -- Actualizar UI
         UpdatePropsList()
     end)
+    
+    return true
+end
+
+-- Función para la tecla R (Reload)
+function TOOL:Reload(tr)
+    if not IsFirstTimePredicted() then return false end
+    
+    -- Verificar que sea un prop válido
+    if not IsValid(tr.Entity) or tr.Entity:GetClass() ~= "prop_physics" then
+        return false
+    end
+    
+    -- Verificar si el prop está en la lista seleccionada
+    if not IsAlreadySelectedLocal(tr.Entity) then
+        surface.PlaySound("buttons/button10.wav") -- Sonido de error
+        return false
+    end
+    
+    -- Detener movimiento antes de eliminar
+    net.Start("PropMovement_Stop")
+    net.WriteInt(tr.Entity:EntIndex(), 16)
+    net.SendToServer()
+    
+    -- Enviar comando para eliminar configuración del servidor
+    net.Start("PropMovement_Remove")
+    net.WriteInt(tr.Entity:EntIndex(), 16)
+    net.SendToServer()
+    
+    -- Eliminar prop de la configuración local
+    RemovePropConfig(tr.Entity)
+    
+    -- Actualizar UI
+    UpdatePropsList()
+    
+    -- Sonido de confirmación
+    surface.PlaySound("buttons/button15.wav")
     
     return true
 end

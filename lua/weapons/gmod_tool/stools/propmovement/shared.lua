@@ -10,6 +10,7 @@ if SERVER then
     util.AddNetworkString("PropMovement_CheckServer")
     util.AddNetworkString("PropMovement_ServerResponse")
     util.AddNetworkString("PropMovement_ClearAll")
+    util.AddNetworkString("PropMovement_Remove")
 end
 
 -- Default settings
