@@ -1,6 +1,6 @@
 "VertexlitGeneric"
 {
-	"$basetexture" "models\codwaw\other\Flag\mtl_flag3"
+	"$basetexture" "models\codwaw\other\Flag\mtl_flag5"
 	"$bumpmap"     "models\codwaw\other\Flag\mtl_flag_n"
 
 	"$phong" "1"
