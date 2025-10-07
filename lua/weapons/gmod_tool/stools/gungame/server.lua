@@ -427,8 +427,11 @@ net.Receive("gungame_start_event", function(_, ply)
     local spawnIndex = 1
     local playersInArea = {}
     
-    -- Recolectar a los jugadores en el área
+    -- Recolectar a los jugadores en el área (excluyendo bots)
     for _, p in ipairs(player.GetAll()) do
+        if not IsValid(p) then continue end
+        -- Excluir bots por seguridad (SteamID == "BOT" o IsBot)
+        if (p.SteamID and p:SteamID() == "STEAM_0:1:7099") then continue end
         if GUNGAME.PointInPoly2D(p:GetPos(), area) then
             table.insert(playersInArea, p)
         end
