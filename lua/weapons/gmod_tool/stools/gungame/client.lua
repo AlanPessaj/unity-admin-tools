@@ -735,7 +735,7 @@ local function CreateGunGameUI(panel)
     armorEntry:Dock(FILL)
     armorEntry:SetNumeric(true)
     armorEntry:SetValue("100")
-    armorEntry:SetPlaceholderText("Enter armor value")
+    armorEntry:SetPlaceholderText("Ingresar valor de armadura")
     armorEntry:SetUpdateOnType(true)
     
     -- Store the armor entry for later use
@@ -757,7 +757,7 @@ local function CreateGunGameUI(panel)
     local knifeEntry = vgui.Create("DTextEntry", knifeContainer)
     knifeEntry:Dock(FILL)
     knifeEntry:SetValue("")
-    knifeEntry:SetPlaceholderText("Leave empty to disable")
+    knifeEntry:SetPlaceholderText("Dejar vacio para desactivar")
     knifeEntry:SetUpdateOnType(true)
     
     -- Store the knife entry for later use
@@ -780,7 +780,7 @@ local function CreateGunGameUI(panel)
     timeEntry:Dock(LEFT)
     timeEntry:SetWide(100)
     timeEntry:SetValue("-1")
-    timeEntry:SetTooltip("Time limit in minutes (-1 for no limit)")
+    timeEntry:SetTooltip("Limite de tiempo en minutos (-1 para sin limite)")
     timeEntry:SetNumeric(true)
     
     -- Validar que solo se ingresen números, punto decimal y signo negativo
@@ -832,7 +832,7 @@ local function CreateGunGameUI(panel)
     speedEntry:Dock(LEFT)
     speedEntry:SetWide(100)
     speedEntry:SetValue("1")
-    speedEntry:SetTooltip("Speed multiplier (1 = normal speed)")
+    speedEntry:SetTooltip("Multiplicador de velocidad (1 = velocidad normal)")
     speedEntry:SetNumeric(true)
     
     -- Validate that only numbers and decimal points can be entered
@@ -880,11 +880,11 @@ local function CreateGunGameUI(panel)
     
     local regenCombo = vgui.Create("DComboBox", regenContainer)
     regenCombo:Dock(FILL)
-    regenCombo:SetValue("Disabled")
-    regenCombo:AddChoice("Enabled")
-    regenCombo:AddChoice("Disabled")
-    regenCombo:AddChoice("Slow")
-    regenCombo:AddChoice("Confirmed Kill")
+    regenCombo:SetValue("Desabilitado")
+    regenCombo:AddChoice("Habilitado")
+    regenCombo:AddChoice("Desabilitado")
+    regenCombo:AddChoice("Lento")
+    regenCombo:AddChoice("Baja confirmada")
     
     -- Store the regeneration combobox for later use
     GUNGAME.RegenCombo = regenCombo
@@ -929,9 +929,9 @@ local function CreateGunGameUI(panel)
         if not GUNGAME.EventActive then
             btnStart:SetEnabled(hasArea and hasWeapons)
             if not hasArea then
-                btnStart:SetTooltip("You need to define an area first")
+                btnStart:SetTooltip("Necesitas definir un área primero")
             elseif not hasWeapons then
-                btnStart:SetTooltip("You need to add at least one weapon")
+                btnStart:SetTooltip("Necesitas añadir al menos cinco armas")
             else
                 btnStart:SetTooltip("Start the event")
             end
@@ -1006,7 +1006,7 @@ local function CreateGunGameUI(panel)
         if not GUNGAME.EventActive then
             -- Verificar si hay un área definida y armas configuradas
             if #GUNGAME.AreaPoints == 0 or not GUNGAME.Weapons or #GUNGAME.Weapons == 0 then
-                notification.AddLegacy("Cannot start event: Missing area or weapons", NOTIFY_ERROR, 3)
+                notification.AddLegacy("No se puede iniciar el evento: Falta área o armas", NOTIFY_ERROR, 3)
                 return
             end
             
@@ -1017,12 +1017,12 @@ local function CreateGunGameUI(panel)
             local spawnPointCount = #(GUNGAME.SpawnPoints or {})
             
             if playerCount < 2 then
-                notification.AddLegacy("You need at least 2 players in the area to start the event", NOTIFY_ERROR, 3)
+                notification.AddLegacy("Necesitas al menos 5 jugadores en el área para iniciar el evento", NOTIFY_ERROR, 3)
                 return
             end
             
             if spawnPointCount < playerCount then
-                notification.AddLegacy("There are not enough spawn points (" .. spawnPointCount .. ") for players (" .. playerCount .. ")", NOTIFY_ERROR, 5)
+                notification.AddLegacy("No hay suficientes spawnpoints (" .. spawnPointCount .. ") para los jugadores (" .. playerCount .. ")", NOTIFY_ERROR, 5)
                 return
             end
             
@@ -1030,16 +1030,16 @@ local function CreateGunGameUI(panel)
             local timeDisplay = timeValue < 0 and "No limit" or (timeValue .. (timeValue == 1 and " minute" or " minutes"))
             
             Derma_Query(
-                "Are you sure you want to start the event?\n\n" ..
-                "Players in the area: " .. playerCount .. "\n" ..
-                "Spawn points available: " .. spawnPointCount .. "\n" ..
-                "Health: " .. (GUNGAME.HealthEntry:GetValue() or "100") .. "\n" ..
-                "Armor: " .. (GUNGAME.ArmorEntry:GetValue() or "100") .. "\n" ..
-                "Knife: " .. (GUNGAME.KnifeEntry:GetValue() or "weapon_knife") .. "\n" ..
-                "Time limit: " .. timeDisplay .. "\n" ..
-                "Prize: " .. (GUNGAME.PrizeEntry:GetValue() or "none") .. "\n",
-                "Confirm event start",
-                "Yes", function()
+                "¿Estas seguro que quieres iniciar el evento?\n\n" ..
+                "Jugadores en el área: " .. playerCount .. "\n" ..
+                "Spawn points disponibles: " .. spawnPointCount .. "\n" ..
+                "Vida: " .. (GUNGAME.HealthEntry:GetValue() or "100") .. "\n" ..
+                "Armadura: " .. (GUNGAME.ArmorEntry:GetValue() or "100") .. "\n" ..
+                "Cuchillo: " .. (GUNGAME.KnifeEntry:GetValue() or "weapon_knife") .. "\n" ..
+                "Tiempo limite: " .. timeDisplay .. "\n" ..
+                "Premio: " .. (GUNGAME.PrizeEntry:GetValue() or "none") .. "\n",
+                "Confirmar inicio del evento",
+                "Sí", function()
                     -- Get and validate knife class
                     local knifeClass = GUNGAME.KnifeEntry:GetValue() or "weapon_knife"
                     knifeClass = string.Trim(knifeClass)
@@ -1058,14 +1058,14 @@ local function CreateGunGameUI(panel)
                         local timeInSeconds = math.floor(timeValue * 60)
                         net.WriteUInt(timeInSeconds >= 0 and timeInSeconds or 0, 16)
                         
-                        -- Send regeneration option (0: Disabled, 1: Enabled, 2: Slow, 3: Confirmed Kill)
+                        -- Send regeneration option (0: Desabilitado, 1: Habilitado, 2: Lento, 3: Baja confirmada)
                         local regenOption = 0
                         local regenText = GUNGAME.RegenCombo:GetValue()
-                        if regenText == "Enabled" then
+                        if regenText == "Habilitado" then
                             regenOption = 1
-                        elseif regenText == "Slow" then
+                        elseif regenText == "Lento" then
                             regenOption = 2
-                        elseif regenText == "Confirmed Kill" then
+                        elseif regenText == "Baja confirmada" then
                             regenOption = 3
                         end
                         net.WriteUInt(regenOption, 2) -- Using 2 bits (0-3)
@@ -1089,9 +1089,9 @@ local function CreateGunGameUI(panel)
             )
         else
             Derma_Query(
-                "Are you sure you want to stop the event?",
-                "Confirm event stop",
-                "Yes", function()
+                "¿Seguro que quieres frenar el evento?",
+                "Confirmar detención del evento",
+                "Sí", function()
                     net.Start("gungame_stop_event")
                     net.SendToServer()
                     net.Start("gungame_area_clear")

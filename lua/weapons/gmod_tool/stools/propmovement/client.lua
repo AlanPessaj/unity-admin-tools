@@ -160,7 +160,7 @@ UpdatePropsList = function()
     -- Mostrar mensaje si no hay props
     if #selectedProps == 0 then
         local noPropsLabel = propsListPanel:Add("DLabel")
-        noPropsLabel:SetText("No props selected")
+        noPropsLabel:SetText("No hay props seleccionados.")
         noPropsLabel:Dock(TOP)
         noPropsLabel:SetTextColor(Color(128, 128, 128))
         noPropsLabel:DockMargin(5, 5, 5, 2)
@@ -197,7 +197,7 @@ CreatePropConfigPanel = function(parent, prop, index)
     
     -- Direction ComboBox
     local dirLabel = innerPanel:Add("DLabel")
-    dirLabel:SetText("Direction:")
+    dirLabel:SetText("Dirección:")
     dirLabel:SetPos(10, 10)
     dirLabel:SetSize(80, 20)
     dirLabel:SetTextColor(Color(0, 0, 0))
@@ -218,7 +218,7 @@ CreatePropConfigPanel = function(parent, prop, index)
     
     -- Distance NumSlider
     local distLabel = innerPanel:Add("DLabel")
-    distLabel:SetText("Distance:")
+    distLabel:SetText("Distancia:")
     distLabel:SetPos(10, 40)
     distLabel:SetSize(80, 20)
     distLabel:SetTextColor(Color(0, 0, 0))
@@ -272,7 +272,7 @@ CreatePropConfigPanel = function(parent, prop, index)
     
     -- Botón Eliminar
     local removeBtn = innerPanel:Add("DButton")
-    removeBtn:SetText("Remove Prop")
+    removeBtn:SetText("Remover Prop")
     removeBtn:SetPos(190, 130)
     removeBtn:SetSize(90, 25)
     removeBtn.DoClick = function()
@@ -290,7 +290,7 @@ CreatePropConfigPanel = function(parent, prop, index)
     
     -- Botón Start Movement
     local startBtn = innerPanel:Add("DButton")
-    startBtn:SetText("Start Movement")
+    startBtn:SetText("Iniciar Movimiento")
     startBtn:SetPos(0, 130)
     startBtn:SetSize(90, 25)
     startBtn.DoClick = function()
@@ -310,7 +310,7 @@ CreatePropConfigPanel = function(parent, prop, index)
     
     -- Botón Stop Movement
     local stopBtn = innerPanel:Add("DButton")
-    stopBtn:SetText("Stop Movement")
+    stopBtn:SetText("Detener Movimiento")
     stopBtn:SetPos(95, 130)
     stopBtn:SetSize(90, 25)
     stopBtn.DoClick = function()
@@ -326,7 +326,7 @@ end
 function TOOL:LeftClick(tr)
     if not IsFirstTimePredicted() then return false end
     if RankLevel(self:GetOwner()) <= #selectedProps then
-        notification.AddLegacy( "You have reached the maximum number of props you can select.", NOTIFY_ERROR, 5 )
+        notification.AddLegacy( "Has alcanzado el maximo de props que puedes seleccionar.", NOTIFY_ERROR, 5 )
         surface.PlaySound("buttons/button10.wav")
         return false
     end
@@ -426,7 +426,7 @@ function PropMovement_UI(panel)
     
     -- Boton para iniciar todos los props
     local startAll = vgui.Create("DButton")
-    startAll:SetText("Start All Props")
+    startAll:SetText("Iniciar Todos los Props")
     startAll:SetSize(100, 25)
     startAll.DoClick = function()
         for _, prop in ipairs(selectedProps) do
@@ -453,7 +453,7 @@ function PropMovement_UI(panel)
 
     -- Boton para parar todos los props
     local stopAll = vgui.Create("DButton")
-    stopAll:SetText("Stop All Props")
+    stopAll:SetText("Detener Todos los Props")
     stopAll:SetSize(100, 25)
     stopAll.DoClick = function()
         for _, prop in ipairs(selectedProps) do
@@ -469,7 +469,7 @@ function PropMovement_UI(panel)
 
     -- Botón para limpiar selección
     local clearBtn = vgui.Create("DButton")
-    clearBtn:SetText("Clear All")
+    clearBtn:SetText("Limpiar Todo")
     clearBtn:SetSize(100, 25)
     clearBtn.DoClick = function()
         -- Recopilar IDs de las entidades a limpiar
@@ -506,7 +506,7 @@ function PropMovement_UI(panel)
     
     -- Panel con lista de props seleccionados
     local listHeader = vgui.Create("DLabel")
-    listHeader:SetText("Selected Props:")
+    listHeader:SetText("Props Seleccionados:")
     listHeader:SetFont("UAT_Circular_14")
     listHeader:SetTextColor(Color(0, 0, 0))
     listHeader:SizeToContents()
@@ -525,7 +525,7 @@ function PropMovement_UI(panel)
         panel.PropMovementTimer = true
         panel.Think = function()
             if (panel.NextUpdate or 0) < CurTime() then
-                panel.NextUpdate = CurTime() + 1 -- Actualizar cada segundo
+                panel.NextUpdate = CurTime() + 1
                 
                 -- Limpiar props inválidos
                 local oldCount = #selectedProps

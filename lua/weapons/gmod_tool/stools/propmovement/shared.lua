@@ -36,11 +36,12 @@ PropMovement.Directions = {
 function PropMovement.HasPermission(ply)
     if not IsValid(ply) or not ply.GetUserGroup then return false end
     
-    -- Lista de rangos que tienen acceso (misma que GunGame)
+    -- Lista de rangos que tienen acceso
     local allowedRanks = {
         ["superadmin"] = true,
         ["moderadorelite"] = true,
         ["moderadorsenior"] = true,
+        ["moderador"] = true,
         ["directormods"] = true,
         ["ejecutivo"] = true
     }

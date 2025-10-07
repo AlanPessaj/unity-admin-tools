@@ -89,7 +89,6 @@ hook.Add("PlayerDisconnected", "GunGame_PlayerDisconnected", function(ply)
         
         -- Clean up any regeneration data
         regenerating_players[steamID64] = nil
-        DebugMessage("Player " .. ply:Nick() .. " has been removed from the GunGame event (disconnected)")
     end
 end)
 
@@ -1227,7 +1226,7 @@ net.Receive("gungame_transfer_prize", function(_, ply)
     -- Check if the event starter has enough money
     local starterMoney = ply:getDarkRPVar("money") or 0
     if starterMoney < prizeAmount then
-        DarkRP.notify(ply, 1, 5, "You don't have enough money for this prize.")
+        DarkRP.notify(ply, 1, 5, "No tienes suficiente dinero para este premio.")
         return
     end
     
@@ -1238,9 +1237,9 @@ net.Receive("gungame_transfer_prize", function(_, ply)
     winner:addMoney(prizeAmount)
     
     -- Notify both players
-    DarkRP.notify(ply, 3, 5, "You have given $" .. prizeAmount .. " to " .. winner:Nick())
-    DarkRP.notify(winner, 3, 5, "You have received $" .. prizeAmount .. " for winning the GunGame!")
-    
+    DarkRP.notify(ply, 3, 5, "Has dado $" .. prizeAmount .. " a " .. winner:Nick())
+    DarkRP.notify(winner, 3, 5, "Has recibido $" .. prizeAmount .. " por ganar el GunGame!")
+
     -- Log the transaction
     print(string.format("[GunGame] %s (%s) gave $%d to %s (%s) as a prize",
         ply:Nick(), ply:SteamID(), prizeAmount, winner:Nick(), winner:SteamID()))

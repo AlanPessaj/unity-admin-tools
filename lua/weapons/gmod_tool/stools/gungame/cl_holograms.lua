@@ -11,8 +11,6 @@ net.Receive("GunGame_CreateHologram", function()
     local endTime = net.ReadFloat()
     local holoID = net.ReadString()
     
-    print("[GunGame] Creando esfera holográfica con ID:", holoID)
-    
     -- Crear una entidad vacía para la posición
     local ent = ents.CreateClientProp()
     if not IsValid(ent) then 
@@ -20,14 +18,14 @@ net.Receive("GunGame_CreateHologram", function()
         return 
     end
     
-    ent:SetPos(pos + Vector(0, 0, 5)) -- Elevar un poco la posición
+    ent:SetPos(pos + Vector(0, 0, 5))
     ent:Spawn()
     ent:Activate()
-    ent:SetNoDraw(true) -- No dibujar el modelo de la entidad
+    ent:SetNoDraw(true)
     
     -- Configurar propiedades visuales
     local color = Color(100, 255, 100, 180)
-    local radius = 15 -- Tamaño de la esfera
+    local radius = 15
     
     -- Añadir a la tabla de hologramas
     holograms[holoID] = {
