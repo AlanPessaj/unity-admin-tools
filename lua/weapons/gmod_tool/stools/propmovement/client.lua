@@ -254,7 +254,7 @@ CreatePropConfigPanel = function(parent, prop, index)
     
     -- Cooldown NumSlider
     local coolLabel = innerPanel:Add("DLabel")
-    coolLabel:SetText("Enfriamiento:")
+    coolLabel:SetText("Cooldown:")
     coolLabel:SetPos(10, 100)
     coolLabel:SetSize(80, 20)
     coolLabel:SetTextColor(Color(0, 0, 0))
