@@ -418,6 +418,9 @@ end)
 
 -- Función para crear la interfaz de usuario
 function PropMovement_UI(panel)
+    -- Ensure addon fonts are registered before creating UI
+    if CLIENT and UAT_EnsureFonts then UAT_EnsureFonts() end
+    
     -- Limpiar panel
     panel:ClearControls()
     
@@ -504,7 +507,7 @@ function PropMovement_UI(panel)
     -- Panel con lista de props seleccionados
     local listHeader = vgui.Create("DLabel")
     listHeader:SetText("Selected Props:")
-    listHeader:SetFont("DermaDefaultBold")
+    listHeader:SetFont("UAT_Circular_14")
     listHeader:SetTextColor(Color(0, 0, 0))
     listHeader:SizeToContents()
     panel:AddItem(listHeader)
