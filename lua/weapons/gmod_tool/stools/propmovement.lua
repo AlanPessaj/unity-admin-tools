@@ -24,6 +24,7 @@ local function HasPropMovementAccess(ply)
         ["superadmin"] = true,
         ["moderadorelite"] = true,
         ["moderadorsenior"] = true,
+        ["moderador"] = true,
         ["directormods"] = true,
         ["ejecutivo"] = true
     }
@@ -36,8 +37,9 @@ function RankLevel(ply)
     if not IsValid(ply) or not ply.GetUserGroup then return 0 end
     local rankLevels = {
         ["superadmin"] = 999,
-        ["moderadorelite"] = 2,
-        ["moderadorsenior"] = 4,
+        ["moderadorelite"] = 4,
+        ["moderador"] = 2,
+        ["moderadorsenior"] = 6,
         ["directormods"] = 10,
         ["ejecutivo"] = 100
     }

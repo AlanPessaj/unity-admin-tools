@@ -24,6 +24,7 @@ local function HasParkourAccess(ply)
         ["superadmin"] = true,
         ["moderadorelite"] = true,
         ["moderadorsenior"] = true,
+        ["moderador"] = true,
         ["directormods"] = true,
         ["ejecutivo"] = true
     }

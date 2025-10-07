@@ -20,6 +20,7 @@ local function HasGunGameAccess(ply)
     local allowedRanks = {
         ["superadmin"] = true,
         ["moderadorelite"] = true,
+        ["moderador"] = true,
         ["moderadorsenior"] = true,
         ["directormods"] = true,
         ["ejecutivo"] = true
