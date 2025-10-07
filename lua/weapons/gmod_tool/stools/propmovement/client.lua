@@ -236,7 +236,7 @@ CreatePropConfigPanel = function(parent, prop, index)
     
     -- Time NumSlider
     local timeLabel = innerPanel:Add("DLabel")
-    timeLabel:SetText("Time:")
+    timeLabel:SetText("Tiempo:")
     timeLabel:SetPos(10, 70)
     timeLabel:SetSize(80, 20)
     timeLabel:SetTextColor(Color(0, 0, 0))
@@ -254,7 +254,7 @@ CreatePropConfigPanel = function(parent, prop, index)
     
     -- Cooldown NumSlider
     local coolLabel = innerPanel:Add("DLabel")
-    coolLabel:SetText("Cooldown:")
+    coolLabel:SetText("Enfriamiento:")
     coolLabel:SetPos(10, 100)
     coolLabel:SetSize(80, 20)
     coolLabel:SetTextColor(Color(0, 0, 0))

@@ -87,9 +87,9 @@ net.Receive("gungame_player_won", function()
 
     if event_starter_money < prizeAmount then
         Derma_Query(
-            "You don't have enough money to pay the prize $" .. prizeAmount .. "\n Do you want to give the rest of your money to the winner " .. winner:Nick() .. "?",
-            "Confirmation of Prize",
-            "Yes", function()
+            "No tienes suficiente dinero para pagar el premio $" .. prizeAmount .. "\n ¿Quieres dar el resto de tu dinero al ganador " .. winner:Nick() .. "?",
+            "Confirmación de premio",
+            "Sí", function()
                 net.Start("gungame_transfer_prize")
                     net.WriteEntity(winner)
                     net.WriteUInt(event_starter_money, 32)
@@ -99,9 +99,9 @@ net.Receive("gungame_player_won", function()
         )
     else
         Derma_Query(
-            "Do you want to give the prize of $" .. prizeAmount .. " to the winner " .. winner:Nick() .. "?",
-            "Confirmation of Prize",
-            "Yes", function()
+            "¿Quieres dar el premio de $" .. prizeAmount .. " al ganador " .. winner:Nick() .. "?",
+            "Confirmación de premio",
+            "Sí", function()
                 net.Start("gungame_transfer_prize")
                     net.WriteEntity(winner)
                     net.WriteUInt(prizeAmount, 32)
@@ -456,11 +456,11 @@ net.Receive("gungame_weapon_validated", function()
     if isValid then
         table.insert(GUNGAME.Weapons, weaponID)
         UpdateWeaponList()
-        notification.AddLegacy("Added weapon: " .. weaponID, NOTIFY_GENERIC, 2)
+    notification.AddLegacy("Arma agregada: " .. weaponID, NOTIFY_GENERIC, 2)
         SyncWeaponsWithServer()
         hook.Run("GunGame_WeaponsUpdated")
     else
-        notification.AddLegacy("Invalid weapon: " .. weaponID, NOTIFY_ERROR, 2)
+    notification.AddLegacy("Arma inválida: " .. weaponID, NOTIFY_ERROR, 2)
     end
 end)
 
@@ -514,7 +514,7 @@ local function CreateGunGameUI(panel)
     local label = vgui.Create("DLabel", headerPanel)
     label:Dock(LEFT)
     label:DockMargin(8, 0, 0, 0)
-    label:SetText("Set the game area")
+    label:SetText("Definir el área de juego")
     label:SetFont("UAT_Circular_14")
     label:SetTextColor(Color(40, 40, 40))
     label:SizeToContents()
@@ -528,7 +528,7 @@ local function CreateGunGameUI(panel)
 
     -- Select area button
     local btnSelect = vgui.Create("DButton", panel)
-    btnSelect:SetText("Select area")
+    btnSelect:SetText("Seleccionar área")
     btnSelect:Dock(TOP)
     btnSelect:DockMargin(0, 8, 0, 4)
     btnSelect:SetTall(28)
@@ -540,7 +540,7 @@ local function CreateGunGameUI(panel)
 
     -- Delete selection button
     local btnDelete = vgui.Create("DButton", panel)
-    btnDelete:SetText("Delete selection")
+    btnDelete:SetText("Borrar selección")
     btnDelete:Dock(TOP)
     btnDelete:DockMargin(0, 4, 0, 16)
     btnDelete:SetTall(28)
@@ -572,13 +572,13 @@ local function CreateGunGameUI(panel)
     local spawnLabel = vgui.Create("DLabel", spawnHeader)
     spawnLabel:Dock(LEFT)
     spawnLabel:DockMargin(8, 0, 0, 0)
-    spawnLabel:SetText("Spawn Points (at least one per player)")
+    spawnLabel:SetText("SpawnPoints (al menos uno por jugador)")
     spawnLabel:SetFont("UAT_Circular_14")
     spawnLabel:SetTextColor(Color(40, 40, 40))
     spawnLabel:SizeToContents()
 
     local btnAddSpawn = vgui.Create("DButton", panel)
-    btnAddSpawn:SetText("Add Spawn Point")
+    btnAddSpawn:SetText("Agregar SpawnPoint")
     btnAddSpawn:Dock(TOP)
     btnAddSpawn:DockMargin(0, 8, 0, 4)
     btnAddSpawn:SetTall(28)
@@ -601,7 +601,7 @@ local function CreateGunGameUI(panel)
     end
 
     local btnClearSpawns = vgui.Create("DButton", panel)
-    btnClearSpawns:SetText("Clear Spawn Points")
+    btnClearSpawns:SetText("Borrar SpawnPoints")
     btnClearSpawns:Dock(TOP)
     btnClearSpawns:DockMargin(0, 4, 0, 16)
     btnClearSpawns:SetTall(28)
@@ -622,7 +622,7 @@ local function CreateGunGameUI(panel)
     local weaponsLabel = vgui.Create("DLabel", weaponsHeader)
     weaponsLabel:Dock(LEFT)
     weaponsLabel:DockMargin(0, 0, 0, 0)
-    weaponsLabel:SetText("Weapons")
+    weaponsLabel:SetText("Armas")
     weaponsLabel:SetFont("UAT_Circular_14")
     weaponsLabel:SetTextColor(Color(40, 40, 40))
     weaponsLabel:SizeToContents()
@@ -637,7 +637,7 @@ local function CreateGunGameUI(panel)
     -- Text entry for weapon class
     local weaponEntry = vgui.Create("DTextEntry", weaponsInputContainer)
     weaponEntry:Dock(FILL)
-    weaponEntry:SetPlaceholderText("Weapon ID")
+    weaponEntry:SetPlaceholderText("ID del arma")
     weaponEntry:SetUpdateOnType(true)
     
     -- Button container for the two square buttons
@@ -655,7 +655,7 @@ local function CreateGunGameUI(panel)
         local weaponID = string.Trim(weaponEntry:GetValue())
         if weaponID == "" then return end
         if table.HasValue(GUNGAME.Weapons, weaponID) then
-            notification.AddLegacy("Weapon already in list!", NOTIFY_ERROR, 2)
+            notification.AddLegacy("El arma ya está en la lista!", NOTIFY_ERROR, 2)
             return
         end
         net.Start("gungame_validate_weapon")
@@ -673,7 +673,7 @@ local function CreateGunGameUI(panel)
         net.Start("gungame_clear_weapons")
         net.SendToServer()
         ClearWeaponList()
-        notification.AddLegacy("Weapon list cleared", NOTIFY_GENERIC, 2)
+    notification.AddLegacy("Lista de armas vaciada", NOTIFY_GENERIC, 2)
     end
     
     -- Weapon list panel
@@ -690,7 +690,7 @@ local function CreateGunGameUI(panel)
     local optionsLabel = vgui.Create("DLabel", panel)
     optionsLabel:Dock(TOP)
     optionsLabel:DockMargin(0, 8, 0, 8)
-    optionsLabel:SetText("Options")
+    optionsLabel:SetText("Opciones")
     optionsLabel:SetFont("UAT_Circular_14")
     optionsLabel:SetTextColor(Color(40, 40, 40))
     optionsLabel:SizeToContents()
@@ -705,14 +705,14 @@ local function CreateGunGameUI(panel)
     local healthLabel = vgui.Create("DLabel", healthContainer)
     healthLabel:Dock(LEFT)
     healthLabel:SetWide(60)
-    healthLabel:SetText("Health:")
+    healthLabel:SetText("Vida:")
     healthLabel:SetTextColor(Color(40, 40, 40))
     
     local healthEntry = vgui.Create("DTextEntry", healthContainer)
     healthEntry:Dock(FILL)
     healthEntry:SetNumeric(true)
     healthEntry:SetValue("100")
-    healthEntry:SetPlaceholderText("Enter health value")
+    healthEntry:SetPlaceholderText("Ingresar valor de vida")
     healthEntry:SetUpdateOnType(true)
     
     -- Store the health entry for later use
@@ -728,7 +728,7 @@ local function CreateGunGameUI(panel)
     local armorLabel = vgui.Create("DLabel", armorContainer)
     armorLabel:Dock(LEFT)
     armorLabel:SetWide(60)
-    armorLabel:SetText("Armor:")
+    armorLabel:SetText("Armadura:")
     armorLabel:SetTextColor(Color(40, 40, 40))
     
     local armorEntry = vgui.Create("DTextEntry", armorContainer)
@@ -751,7 +751,7 @@ local function CreateGunGameUI(panel)
     local knifeLabel = vgui.Create("DLabel", knifeContainer)
     knifeLabel:Dock(LEFT)
     knifeLabel:SetWide(60)
-    knifeLabel:SetText("Knife:")
+    knifeLabel:SetText("Cuchillo:")
     knifeLabel:SetTextColor(Color(40, 40, 40))
     
     local knifeEntry = vgui.Create("DTextEntry", knifeContainer)
@@ -773,7 +773,7 @@ local function CreateGunGameUI(panel)
     local timeLabel = vgui.Create("DLabel", timeContainer)
     timeLabel:Dock(LEFT)
     timeLabel:SetWide(100)
-    timeLabel:SetText("Time (minutes):")
+    timeLabel:SetText("Tiempo (minutos):")
     timeLabel:SetTextColor(Color(40, 40, 40))
     
     local timeEntry = vgui.Create("DTextEntry", timeContainer)
@@ -825,7 +825,7 @@ local function CreateGunGameUI(panel)
     local speedLabel = vgui.Create("DLabel", speedContainer)
     speedLabel:Dock(LEFT)
     speedLabel:SetWide(100)
-    speedLabel:SetText("Speed:")
+    speedLabel:SetText("Velocidad:")
     speedLabel:SetTextColor(Color(40, 40, 40))
     
     local speedEntry = vgui.Create("DTextEntry", speedContainer)
@@ -875,7 +875,7 @@ local function CreateGunGameUI(panel)
     local regenLabel = vgui.Create("DLabel", regenContainer)
     regenLabel:Dock(LEFT)
     regenLabel:SetWide(100)
-    regenLabel:SetText("Regeneration:")
+    regenLabel:SetText("Regeneración:")
     regenLabel:SetTextColor(Color(40, 40, 40))
     
     local regenCombo = vgui.Create("DComboBox", regenContainer)
@@ -899,7 +899,7 @@ local function CreateGunGameUI(panel)
     local prizeLabel = vgui.Create("DLabel", prizeContainer)
     prizeLabel:Dock(LEFT)
     prizeLabel:SetWide(100)
-    prizeLabel:SetText("Prize:")
+    prizeLabel:SetText("Premio:")
     prizeLabel:SetTextColor(Color(40, 40, 40))
     
     local prizeEntry = vgui.Create("DTextEntry", prizeContainer)
@@ -914,7 +914,7 @@ local function CreateGunGameUI(panel)
     -- Event control button
     GUNGAME.EventActive = false
     local btnStart = vgui.Create("DButton", panel)
-    btnStart:SetText("Start event")
+    btnStart:SetText("Iniciar evento")
     btnStart:Dock(TOP)
     btnStart:DockMargin(0, 24, 0, 0)
     btnStart:SetTall(32)
@@ -933,7 +933,7 @@ local function CreateGunGameUI(panel)
             elseif not hasWeapons then
                 btnStart:SetTooltip("Necesitas añadir al menos cinco armas")
             else
-                btnStart:SetTooltip("Start the event")
+                btnStart:SetTooltip("Iniciar el evento")
             end
         end
     end
@@ -942,9 +942,9 @@ local function CreateGunGameUI(panel)
     GUNGAME.SetButtonState = function(active)
         GUNGAME.EventActive = active
         if active then
-            btnStart:SetText("Stop event")
+            btnStart:SetText("Detener evento")
             btnStart:SetEnabled(true)
-            btnStart:SetTooltip("Stop the event")
+            btnStart:SetTooltip("Detener el evento")
             btnSelect:SetEnabled(false)
             btnDelete:SetEnabled(false)
             btnAddSpawn:SetEnabled(false)
@@ -1027,7 +1027,7 @@ local function CreateGunGameUI(panel)
             end
             
             local timeValue = tonumber(GUNGAME.TimeEntry:GetValue()) or 10
-            local timeDisplay = timeValue < 0 and "No limit" or (timeValue .. (timeValue == 1 and " minute" or " minutes"))
+            local timeDisplay = timeValue < 0 and "Sin límite" or (timeValue .. (timeValue == 1 and " minuto" or " minutos"))
             
             Derma_Query(
                 "¿Estas seguro que quieres iniciar el evento?\n\n" ..
@@ -1082,7 +1082,7 @@ local function CreateGunGameUI(panel)
                     net.Start("gungame_start_event")
                     net.SendToServer()
                     GUNGAME.SetButtonState(true)
-                    notification.AddLegacy("Event started", NOTIFY_CLEANUP, 3)
+                    notification.AddLegacy("Evento iniciado", NOTIFY_CLEANUP, 3)
                     surface.PlaySound("buttons/button15.wav")
                 end,
                 "No"
