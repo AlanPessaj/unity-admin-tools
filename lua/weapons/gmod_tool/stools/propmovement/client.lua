@@ -426,7 +426,7 @@ function PropMovement_UI(panel)
     
     -- Boton para iniciar todos los props
     local startAll = vgui.Create("DButton")
-    startAll:SetText("Iniciar Todos los Props")
+    startAll:SetText("Iniciar todos los Props")
     startAll:SetSize(100, 25)
     startAll.DoClick = function()
         for _, prop in ipairs(selectedProps) do
@@ -453,7 +453,7 @@ function PropMovement_UI(panel)
 
     -- Boton para parar todos los props
     local stopAll = vgui.Create("DButton")
-    stopAll:SetText("Detener Todos los Props")
+    stopAll:SetText("Detener todos los Props")
     stopAll:SetSize(100, 25)
     stopAll.DoClick = function()
         for _, prop in ipairs(selectedProps) do
@@ -469,7 +469,7 @@ function PropMovement_UI(panel)
 
     -- Botón para limpiar selección
     local clearBtn = vgui.Create("DButton")
-    clearBtn:SetText("Limpiar Todo")
+    clearBtn:SetText("Limpiar todo")
     clearBtn:SetSize(100, 25)
     clearBtn.DoClick = function()
         -- Recopilar IDs de las entidades a limpiar

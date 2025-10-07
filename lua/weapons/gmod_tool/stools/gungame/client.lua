@@ -924,7 +924,7 @@ local function CreateGunGameUI(panel)
     -- Update start button state based on conditions
     local function UpdateStartButtonState()
         local hasArea = #GUNGAME.AreaPoints > 0
-        local hasWeapons = GUNGAME.Weapons and #GUNGAME.Weapons > 0
+        local hasWeapons = GUNGAME.Weapons and #GUNGAME.Weapons > 4
         
         if not GUNGAME.EventActive then
             btnStart:SetEnabled(hasArea and hasWeapons)
@@ -1016,7 +1016,7 @@ local function CreateGunGameUI(panel)
             -- Verificar si hay suficientes puntos de spawn
             local spawnPointCount = #(GUNGAME.SpawnPoints or {})
             
-            if playerCount < 2 then
+            if playerCount < 5 then
                 notification.AddLegacy("Necesitas al menos 5 jugadores en el área para iniciar el evento", NOTIFY_ERROR, 3)
                 return
             end
