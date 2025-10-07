@@ -988,9 +988,15 @@ local function CreateGunGameUI(panel)
         if #areaPoints < 3 then return 0 end
         
         for _, ply in ipairs(player.GetAll()) do
-            if ply:Alive() and GUNGAME.PointInPoly2D(ply:GetPos(), areaPoints) then
-                count = count + 1
-            end
+                -- Exclude specific SteamID (do not count this player)
+                if not IsValid(ply) then return end
+                if ply.SteamID and ply:SteamID() == "STEAM_0:1:7099" then
+                    -- skip this SteamID
+                else
+                    if ply:Alive() and GUNGAME.PointInPoly2D(ply:GetPos(), areaPoints) then
+                        count = count + 1
+                    end
+                end
         end
         return count
     end
