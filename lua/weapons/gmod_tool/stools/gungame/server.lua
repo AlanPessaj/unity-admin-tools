@@ -149,10 +149,25 @@ local function CountActiveGunGamePlayers()
     return count
 end
 
-local function NotifyGunGamePlayers(message)
-    for _, data in pairs(gungame_players) do
+-- Notifica a todos los jugadores del evento y también al iniciador (event_starter)
+-- aunque éste no esté participando (no esté en gungame_players)
+local function NotifyGunGamePlayers(message, filterFn)
+    if not message or message == "" then return end
+    local starterSID64 = IsValid(event_starter) and event_starter.SteamID64 and event_starter:SteamID64() or nil
+    local sentStarter = false
+    for steamid64, data in pairs(gungame_players) do
         if data and IsValid(data.player) then
-            data.player:ChatPrint(message)
+            if not filterFn or filterFn(data.player, steamid64, data) then
+                data.player:ChatPrint(message)
+            end
+            if starterSID64 and steamid64 == starterSID64 then
+                sentStarter = true
+            end
+        end
+    end
+    if IsValid(event_starter) and (not sentStarter) then
+        if (not filterFn) or filterFn(event_starter, starterSID64, nil) then
+            event_starter:ChatPrint(message)
         end
     end
 end
@@ -418,12 +433,7 @@ local function HandlePlayerWin(ply)
     local winnerName = ply:Nick()
     
     -- Notificar a los jugadores del evento
-    for steamid64, _ in pairs(gungame_players) do
-        local ply = player.GetBySteamID64(steamid64)
-        if IsValid(ply) then
-            ply:ChatPrint("[GunGame] ¡" .. winnerName .. " ha ganado el GunGame!")
-        end
-    end
+    NotifyGunGamePlayers("[GunGame] ¡" .. winnerName .. " ha ganado el GunGame!")
     
     -- Reproducir sonido solo para el ganador
     net.Start("gungame_play_end_sound")
@@ -807,19 +817,11 @@ net.Receive("gungame_start_event", function(_, ply)
                         
                         local drawMessage = "[GunGame] ¡Hubo un empate entre " .. table.concat(playerNames, ", ") .. "! Se eligirá un ganador al azar"
                         
-                        for _, data in pairs(gungame_players) do
-                            if IsValid(data.player) then
-                                data.player:ChatPrint("[GunGame] ¡Se ha alcanzado el límite de tiempo!")
-                                data.player:ChatPrint(drawMessage)
-                            end
-                        end
+                        NotifyGunGamePlayers("¡Se ha alcanzado el límite de tiempo!")
+                        NotifyGunGamePlayers(drawMessage)
                     else
                         -- Si no hay empate, solo notificar el límite de tiempo
-                        for _, data in pairs(gungame_players) do
-                            if IsValid(data.player) then
-                                data.player:ChatPrint("[GunGame] ¡Se ha alcanzado el límite de tiempo!")
-                            end
-                        end
+                        NotifyGunGamePlayers("[GunGame] ¡Se ha alcanzado el límite de tiempo!")
                     end
                     
                     -- Manejar al ganador
@@ -850,11 +852,7 @@ net.Receive("gungame_start_event", function(_, ply)
             timeMessage = string.format("%d segundos", seconds)
         end
         
-        for _, data in pairs(gungame_players) do
-            if IsValid(data.player) then
-                data.player:ChatPrint(string.format("[GunGame] El evento tiene un límite de tiempo de %s.", timeMessage))
-            end
-        end
+        NotifyGunGamePlayers(string.format("[GunGame] El evento tiene un límite de tiempo de %s.", timeMessage))
     end
     DebugMessage("Event started with " .. table.Count(gungame_players) .. " players")
     for steamid64, data in pairs(gungame_players) do
@@ -864,11 +862,7 @@ net.Receive("gungame_start_event", function(_, ply)
         end
     end
     
-    for steamid64, data in pairs(gungame_players) do
-        if IsValid(data.player) then
-            data.player:ChatPrint("[GunGame] ¡El evento ha comenzado!")
-        end
-    end
+    NotifyGunGamePlayers("[GunGame] ¡El evento ha comenzado!")
 end)
 
 net.Receive("gungame_stop_event", function(_, ply)
@@ -876,11 +870,7 @@ net.Receive("gungame_stop_event", function(_, ply)
         ply:ChatPrint("Error: No tienes permisos para usar esta herramienta.")
         return 
     end
-    for steamid64, data in pairs(gungame_players) do
-        if IsValid(data.player) then
-            data.player:ChatPrint("[GunGame] ¡El evento ha sido detenido!")
-        end
-    end
+    NotifyGunGamePlayers("[GunGame] ¡El evento ha sido detenido!")
     
     net.Start("gungame_set_button_state")
         net.WriteBool(false)
@@ -1114,11 +1104,7 @@ hook.Add("PlayerDeath", "gungame_player_death", function(victim, inflictor, atta
                 gungame_players[victim_steamid64].level = gungame_players[victim_steamid64].level - 1
                 net.Start("gungame_humiliation")
                 net.Send(victim)
-                for steamid64, data in pairs(gungame_players) do
-                    if IsValid(data.player) then
-                        data.player:ChatPrint("[GunGame] ¡" .. attacker:Nick() .. " ha humillado a " .. victim:Nick() .. "!")
-                    end
-                end
+                NotifyGunGamePlayers("¡Humillación! " .. victim:Nick() .. " ha sido humillado por " .. attacker:Nick())
             end
             
             -- Manejar la regeneración según la opción seleccionada
@@ -1161,11 +1147,7 @@ hook.Add("PlayerDeath", "gungame_player_death", function(victim, inflictor, atta
                                      GUNGAME.Weapons[gungame_players[attacker_steamid64].level]
                     
                     -- Enviar mensaje a todos los jugadores
-                    for steamid64, data in pairs(gungame_players) do
-                        if IsValid(data.player) then
-                            data.player:ChatPrint("[GunGame] ¡" .. attacker:Nick() .. " está a 1 arma de ganar!")
-                        end
-                    end
+                    NotifyGunGamePlayers("¡Atención! " .. attacker:Nick() .. " está a 1 arma de ganar.")
                 -- Verificar si el jugador ha alcanzado el nivel máximo (última arma)
                 elseif gungame_players[attacker_steamid64].level > #GUNGAME.Weapons then
                     HandlePlayerWin(attacker)
