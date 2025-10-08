@@ -798,9 +798,9 @@ hook.Add("PlayerSpawn", "gungame_respawn_after_death", function(ply)
                 ply:SetHealth(GUNGAME.PlayerHealth or 100)
                 ply:SetArmor(GUNGAME.PlayerArmor or 0)
                 -- Aplicar multiplicador de velocidad
-                local baseWalkSpeed = 250
-                local baseRunSpeed = 500
-                local baseSlowWalkSpeed = 150
+                local baseWalkSpeed = 160
+                local baseRunSpeed = 255
+                local baseSlowWalkSpeed = 120
                 
                 ply:SetWalkSpeed(baseWalkSpeed * GUNGAME.PlayerSpeedMultiplier)
                 ply:SetRunSpeed(baseRunSpeed * GUNGAME.PlayerSpeedMultiplier)
