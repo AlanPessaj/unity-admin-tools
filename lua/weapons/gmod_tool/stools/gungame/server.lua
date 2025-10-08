@@ -475,9 +475,9 @@ net.Receive("gungame_start_event", function(_, ply)
                 end
             end
             
-            p:SetWalkSpeed(250 * GUNGAME.PlayerSpeedMultiplier)
-            p:SetRunSpeed(500 * GUNGAME.PlayerSpeedMultiplier)
-            p:SetSlowWalkSpeed(150 * GUNGAME.PlayerSpeedMultiplier)
+            p:SetWalkSpeed(160 * GUNGAME.PlayerSpeedMultiplier)
+            p:SetRunSpeed(255 * GUNGAME.PlayerSpeedMultiplier)
+            p:SetSlowWalkSpeed(120 * GUNGAME.PlayerSpeedMultiplier)
         end
     end
 
