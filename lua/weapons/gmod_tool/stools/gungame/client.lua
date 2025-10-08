@@ -157,6 +157,34 @@ net.Receive("gungame_play_countdown_sound", function()
     end
 end)
 
+-- Restore visuals when server requests (ensure player isn't transparent or in wrong render mode)
+net.Receive("gungame_restore_visuals", function()
+    local ent = net.ReadEntity() or LocalPlayer()
+    if not IsValid(ent) then return end
+
+    local function Apply(entTarget)
+        if not IsValid(entTarget) then return end
+        entTarget:SetRenderMode(RENDERMODE_NORMAL)
+        entTarget:SetColor(Color(255,255,255,255))
+        -- Si es el jugador local, también arreglar viewmodels
+        if entTarget == LocalPlayer() then
+            for i = 0, 2 do
+                local vm = entTarget:GetViewModel(i)
+                if IsValid(vm) then
+                    vm:SetRenderMode(RENDERMODE_NORMAL)
+                    vm:SetColor(Color(255,255,255,255))
+                end
+            end
+        end
+    end
+
+    -- Intentos múltiples por si el cliente todavía no terminó de crear viewmodels
+    Apply(ent)
+    timer.Simple(0, function() Apply(ent) end)
+    timer.Simple(0.05, function() Apply(ent) end)
+    timer.Simple(0.15, function() Apply(ent) end)
+end)
+
 -- Recibir mensajes de depuración del servidor
 net.Receive("gungame_debug_message", function()
     if not HasGunGameAccess(LocalPlayer()) then return end

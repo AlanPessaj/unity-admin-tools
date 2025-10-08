@@ -44,6 +44,7 @@ util.AddNetworkString("gungame_last_weapon")
 util.AddNetworkString("gungame_update_event_status")
 util.AddNetworkString("gungame_set_button_state")
 util.AddNetworkString("gungame_humiliation")
+util.AddNetworkString("gungame_restore_visuals")
 
 -- Server state
 local selecting = {}
@@ -807,6 +808,28 @@ hook.Add("PlayerSpawn", "gungame_respawn_after_death", function(ply)
                 ply:SetSlowWalkSpeed(baseSlowWalkSpeed * GUNGAME.PlayerSpeedMultiplier)
             end
         end)
+        
+        -- Forzar eliminación de Babygod inmediatamente
+        local function ForceRemoveBabyGod(p)
+            if not IsValid(p) then return end
+            p.Babygod = nil -- Evita que el override de SetColor siga aplicando alpha 100
+            timer.Remove(p:EntIndex() .. "babygod") -- Previene que DarkRP vuelva a tocarlo
+            p:GodDisable()
+            p:SetRenderMode(RENDERMODE_NORMAL)
+            p:SetColor(Color(255,255,255,255))
+        end
+        -- Ejecutar varias veces para asegurarnos que corra después de DarkRP
+        ForceRemoveBabyGod(ply)
+        timer.Simple(0, function() ForceRemoveBabyGod(ply) end)
+        timer.Simple(0.05, function() ForceRemoveBabyGod(ply) end)
+        timer.Simple(0.15, function() ForceRemoveBabyGod(ply) end)
+
+        -- Broadcast a todos los clientes para que actualicen representación de este jugador
+        if IsValid(ply) then
+            net.Start("gungame_restore_visuals")
+                net.WriteEntity(ply)
+            net.Broadcast()
+        end
     end
     if not gungame_event_active or not gungame_area_center then return end
     
