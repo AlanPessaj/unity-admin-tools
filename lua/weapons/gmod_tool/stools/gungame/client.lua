@@ -1043,9 +1043,9 @@ local function CreateGunGameUI(panel)
             
             -- Verificar si hay suficientes puntos de spawn
             local spawnPointCount = #(GUNGAME.SpawnPoints or {})
-            
-            if playerCount < 2 then -- TODO: Change to 5 for production
-                notification.AddLegacy("Necesitas al menos 5 jugadores en el área para iniciar el evento", NOTIFY_ERROR, 3)
+
+            if playerCount < GUNGAME.MinPlayersNeeded then
+                notification.AddLegacy("Necesitas al menos " .. GUNGAME.MinPlayersNeeded .. " jugadores en el área para iniciar el evento", NOTIFY_ERROR, 3)
                 return
             end
             
