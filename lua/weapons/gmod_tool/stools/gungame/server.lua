@@ -386,6 +386,45 @@ local function GiveWeaponByKillCount(ply, killCount)
     end
 end
 
+-- Helper: dar munición al jugador para el arma recién entregada
+local function GiveGunGameAmmo(ply, weaponClass)
+    if not IsValid(ply) then return end
+    if not weaponClass or weaponClass == "" then return end
+
+    local wep = ply:GetWeapon(weaponClass)
+    if not IsValid(wep) then
+        -- Intentar nuevamente al siguiente tick si aún no existe el arma
+        timer.Simple(0, function()
+            if IsValid(ply) then
+                local w2 = ply:GetWeapon(weaponClass)
+                if IsValid(w2) then
+                    GiveGunGameAmmo(ply, weaponClass)
+                end
+            end
+        end)
+        return
+    end
+
+    local desiredPrimary = GUNGAME.DefaultPrimaryAmmo or 90
+    local desiredSecondary = GUNGAME.DefaultSecondaryAmmo or 12
+
+    local primaryType = wep:GetPrimaryAmmoType()
+    if primaryType and primaryType >= 0 then
+        local current = ply:GetAmmoCount(primaryType)
+        if current < desiredPrimary then
+            ply:SetAmmo(desiredPrimary, primaryType)
+        end
+    end
+
+    local secondaryType = wep:GetSecondaryAmmoType()
+    if secondaryType and secondaryType >= 0 and secondaryType ~= primaryType then
+        local current2 = ply:GetAmmoCount(secondaryType)
+        if current2 < desiredSecondary then
+            ply:SetAmmo(desiredSecondary, secondaryType)
+        end
+    end
+end
+
 net.Receive("gungame_start_event", function(_, ply)
     if not HasGunGameAccess(ply) then 
         ply:ChatPrint("Error: No tienes permisos para usar esta herramienta.")
@@ -469,6 +508,7 @@ net.Receive("gungame_start_event", function(_, ply)
                 local firstWeapon = GUNGAME.Weapons[1]
                 if firstWeapon then
                     p:Give(firstWeapon)
+                    GiveGunGameAmmo(p, firstWeapon)
                     if GUNGAME.KnifeClass ~= "" then
                         p:Give(GUNGAME.KnifeClass)
                     end
@@ -778,6 +818,7 @@ hook.Add("PlayerSpawn", "gungame_respawn_in_area", function(ply)
                 if IsValid(ply) then
                     ply:StripWeapons()
                     ply:Give(weaponClass)
+                    GiveGunGameAmmo(ply, weaponClass)
                     if GUNGAME.KnifeClass ~= "" then
                         ply:Give(GUNGAME.KnifeClass)
                     end
@@ -857,6 +898,7 @@ hook.Add("PlayerSpawn", "gungame_respawn_after_death", function(ply)
             if weaponClass then
                 ply:StripWeapons()
                 ply:Give(weaponClass)
+                GiveGunGameAmmo(ply, weaponClass)
                 if GUNGAME.KnifeClass ~= "" then
                     ply:Give(GUNGAME.KnifeClass)
                 end
@@ -968,6 +1010,7 @@ hook.Add("PlayerDeath", "gungame_player_death", function(victim, inflictor, atta
                         if IsValid(attacker) then
                             attacker:StripWeapons()
                             attacker:Give(weaponID)
+                            GiveGunGameAmmo(attacker, weaponID)
 
                             if GUNGAME.KnifeClass ~= "" then
                                 attacker:Give(GUNGAME.KnifeClass)

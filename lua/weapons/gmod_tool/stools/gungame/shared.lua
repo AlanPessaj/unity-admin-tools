@@ -15,6 +15,10 @@ GUNGAME.Config = {
     CheckInterval = 1, -- How often to check player positions (in seconds)
 }
 
+-- Munición por defecto al dar un arma (primaria / secundaria)
+GUNGAME.DefaultPrimaryAmmo = 1000
+GUNGAME.DefaultSecondaryAmmo = 100
+
 -- Helper function to check if a point is inside a polygon
 function GUNGAME.PointInPoly2D(pos, poly)
     local x, y = pos.x, pos.y
