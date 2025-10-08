@@ -73,25 +73,194 @@ local function DebugMessage(msg)
 end
 
 -- Función para detener la regeneración de un jugador
+local function GetSteamID64Safe(ply)
+    if not ply then return nil end
+
+    if isstring(ply) then
+        if ply == "" then return nil end
+
+        if util and util.SteamIDTo64 and ply:find("STEAM_") then
+            local ok, sid64 = pcall(util.SteamIDTo64, ply)
+            if ok and sid64 and sid64 ~= "" then
+                return sid64
+            end
+        end
+
+        if string.sub(ply, 1, 4) == "7656" then
+            return ply
+        end
+
+        return nil
+    end
+
+    local steamid64
+    if ply.SteamID64 then
+        local ok, sid = pcall(ply.SteamID64, ply)
+        if ok then
+            steamid64 = sid
+        end
+    end
+
+    if steamid64 and steamid64 ~= "" then
+        return steamid64
+    end
+
+    if ply.SteamID and ply.IsPlayer then
+        local ok, sid = pcall(ply.SteamID, ply)
+        if ok and sid and sid ~= "" and util.SteamIDTo64 then
+            local ok64, sid64 = pcall(util.SteamIDTo64, sid)
+            if ok64 and sid64 and sid64 ~= "" then
+                return sid64
+            end
+        end
+    end
+
+    return nil
+end
+
 local function StopPlayerRegeneration(ply)
-    if IsValid(ply) and regenerating_players[ply:SteamID64()] then
-        regenerating_players[ply:SteamID64()] = nil
+    local steamid64 = GetSteamID64Safe(ply)
+    if steamid64 then
+        regenerating_players[steamid64] = nil
+    end
+end
+
+local function RemoveGunGamePlayer(steamid64)
+    if not steamid64 then return false end
+
+    if gungame_players[steamid64] then
+        gungame_players[steamid64] = nil
+        regenerating_players[steamid64] = nil
+        return true
+    end
+
+    return false
+end
+
+local function CountActiveGunGamePlayers()
+    local count = 0
+    for steamid64, data in pairs(gungame_players) do
+        if data and IsValid(data.player) then
+            count = count + 1
+        else
+            RemoveGunGamePlayer(steamid64)
+        end
+    end
+    return count
+end
+
+local function NotifyGunGamePlayers(message)
+    for _, data in pairs(gungame_players) do
+        if data and IsValid(data.player) then
+            data.player:ChatPrint(message)
+        end
+    end
+end
+
+local function HandleGunGameParticipantLeft(ply, steamid64, source)
+    if not gungame_event_active then return end
+
+    StopPlayerRegeneration(ply or steamid64)
+
+    local sid64 = steamid64 or GetSteamID64Safe(ply)
+    local removed = false
+
+    if sid64 then
+        removed = RemoveGunGamePlayer(sid64)
+    end
+
+    if not removed and IsValid(ply) then
+        local plySteam64 = GetSteamID64Safe(ply)
+        if plySteam64 and plySteam64 ~= sid64 then
+            sid64 = plySteam64
+            removed = RemoveGunGamePlayer(plySteam64)
+        end
+    end
+
+    if not removed and sid64 then
+        for storedSteam64, data in pairs(gungame_players) do
+            if data and (storedSteam64 == sid64 or data.steamid64 == sid64) then
+                RemoveGunGamePlayer(storedSteam64)
+                sid64 = storedSteam64
+                removed = true
+                break
+            end
+        end
+    end
+
+    if not removed and IsValid(ply) then
+        for storedSteam64, data in pairs(gungame_players) do
+            if data and data.player == ply then
+                RemoveGunGamePlayer(storedSteam64)
+                sid64 = storedSteam64
+                removed = true
+                break
+            end
+        end
+    end
+
+    local remainingPlayers = CountActiveGunGamePlayers()
+    local minPlayers = tonumber(GUNGAME.MinPlayersNeeded) or 0
+
+    if remainingPlayers < minPlayers then
+        NotifyGunGamePlayers("[GunGame] El evento se detuvo por falta de jugadores.")
+        DebugMessage(string.format(
+            "Stopping GunGame event: player count dropped a %d jugadores (mínimo requerido %d) [fuente: %s]",
+            remainingPlayers,
+            minPlayers,
+            source or "desconocida"
+        ))
+        GUNGAME.StopEvent()
+    elseif removed then
+        DebugMessage(string.format(
+            "GunGame participant %s eliminado vía %s. Jugadores restantes: %d",
+            tostring(sid64 or "desconocido"),
+            source or "desconocida",
+            remainingPlayers
+        ))
     end
 end
 
 -- Handle player disconnection
 hook.Add("PlayerDisconnected", "GunGame_PlayerDisconnected", function(ply)
-    if not gungame_event_active or not IsValid(ply) then return end
-    
-    local steamID64 = ply:SteamID64()
-    if gungame_players[steamID64] then
-        -- Remove player from the GunGame player list
-        gungame_players[steamID64] = nil
-        
-        -- Clean up any regeneration data
-        regenerating_players[steamID64] = nil
-    end
+    if not gungame_event_active then return end
+
+    local steamID64 = GetSteamID64Safe(ply)
+    DebugMessage(string.format("PlayerDisconnected hook called (steam64: %s)", tostring(steamID64 or "desconocido")))
+    HandleGunGameParticipantLeft(ply, steamID64, "PlayerDisconnected hook")
 end)
+
+if gameevent and gameevent.Listen then
+    gameevent.Listen("player_disconnect")
+
+    hook.Add("player_disconnect", "GunGame_PlayerDisconnected_Event", function(data)
+        if not gungame_event_active then return end
+
+        local steamID64 = nil
+        local networkID = data.networkid
+
+        if networkID and networkID ~= "" and networkID ~= "BOT" then
+            steamID64 = GetSteamID64Safe(networkID)
+        end
+
+        local ply = nil
+        if data.userid then
+            local ent = Player and Player(data.userid) or nil
+            if IsValid(ent) then
+                ply = ent
+                steamID64 = steamID64 or GetSteamID64Safe(ent)
+            end
+        end
+
+        DebugMessage(string.format(
+            "player_disconnect event recibido para %s (steam64: %s)",
+            data.name or "desconocido",
+            tostring(steamID64 or "desconocido")
+        ))
+
+        HandleGunGameParticipantLeft(ply, steamID64, "player_disconnect event")
+    end)
+end
 
 -- Hook para manejar la regeneración progresiva
 hook.Add("Think", "GunGameProgressiveRegen", function()
