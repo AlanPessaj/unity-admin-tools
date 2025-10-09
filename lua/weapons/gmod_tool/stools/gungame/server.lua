@@ -1,5 +1,6 @@
 AddCSLuaFile("shared.lua")
 AddCSLuaFile("client.lua")
+AddCSLuaFile("autorun/client/uat_gungame_blockf4.lua")
 include("shared.lua")
 
 -- Network strings
@@ -46,6 +47,7 @@ util.AddNetworkString("gungame_humiliation")
 util.AddNetworkString("gungame_restore_visuals")
 util.AddNetworkString("gungame_sync_weapon_list")
 util.AddNetworkString("gungame_request_weapon_list")
+util.AddNetworkString("gungame_participation")
 
 -- Server state
 local selecting = {}
@@ -270,6 +272,31 @@ end)
 
 LoadStarterCooldowns()
 
+-- Debug: listar participantes actuales del evento
+concommand.Add("gungame_list_participants", function(ply)
+    local function out(msg)
+        if IsValid(ply) then
+            ply:PrintMessage(HUD_PRINTCONSOLE, msg)
+        else
+            print(msg)
+        end
+    end
+
+    if not gungame_event_active then
+        out("[GunGame] No hay un evento activo.")
+        return
+    end
+
+    local n = 0
+    for sid64, data in pairs(gungame_players) do
+        if data and IsValid(data.player) then
+            n = n + 1
+            out(string.format("[%02d] %s (%s) - Kills:%d Nivel:%d", n, data.player:Nick(), sid64, data.kills or 0, data.level or 1))
+        end
+    end
+    out(string.format("[GunGame] Participantes totales: %d", n))
+end)
+
 -- Función para enviar mensajes de depuración al iniciador del evento
 local function DebugMessage(msg)
     if IsValid(event_starter) then
@@ -337,8 +364,14 @@ local function RemoveGunGamePlayer(steamid64)
     if not steamid64 then return false end
 
     if gungame_players[steamid64] then
+        local pdata = gungame_players[steamid64]
         gungame_players[steamid64] = nil
         regenerating_players[steamid64] = nil
+        if pdata and IsValid(pdata.player) then
+            net.Start("gungame_participation")
+                net.WriteBool(false)
+            net.Send(pdata.player)
+        end
         return true
     end
 
@@ -614,6 +647,9 @@ function GUNGAME.StopEvent()
     for steamid64, data in pairs(gungame_players) do
         if IsValid(data.player) then
             data.player:StripWeapons()
+            net.Start("gungame_participation")
+                net.WriteBool(false)
+            net.Send(data.player)
             data.player:KillSilent()
         end
     end
@@ -1078,6 +1114,10 @@ net.Receive("gungame_start_event", function(_, ply)
             p:StripWeapons()
             p:SetHealth(GUNGAME.PlayerHealth)
             p:SetArmor(GUNGAME.PlayerArmor)
+            -- Inform the client that he's now a GunGame participant
+            net.Start("gungame_participation")
+                net.WriteBool(true)
+            net.Send(p)
             if GUNGAME.Weapons and #GUNGAME.Weapons > 0 then
                 local firstWeapon = GUNGAME.Weapons[1]
                 if firstWeapon then
@@ -1278,6 +1318,9 @@ net.Receive("gungame_stop_event", function(_, ply)
     for steamid64, data in pairs(gungame_players) do
         if IsValid(data.player) then
             data.player:StripWeapons()
+            net.Start("gungame_participation")
+                net.WriteBool(false)
+            net.Send(data.player)
             data.player:KillSilent()
         end
     end
@@ -1829,6 +1872,14 @@ end
 hook.Add("PlayerInitialSpawn", "GunGame_SendSpawnPoints", function(ply)
     timer.Simple(1, function()
         if IsValid(ply) then
+            -- Inform about participation status on join
+            local isParticipant = false
+            local sid = ply:SteamID64()
+            if sid and gungame_players[sid] then isParticipant = true end
+            net.Start("gungame_participation")
+                net.WriteBool(isParticipant)
+            net.Send(ply)
+
             net.Start("gungame_update_spawnpoints")
                 net.WriteTable(spawnPoints)
             net.Send(ply)

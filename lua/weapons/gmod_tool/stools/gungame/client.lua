@@ -20,6 +20,7 @@ GUNGAME.EventTimeLeft = 0
 GUNGAME.EventStartTime = 0
 GUNGAME.TopPlayers = {}
 GUNGAME.CooldownEndTime = 0
+GUNGAME.IsParticipant = false
 local weaponListPanel
 -- Asegurar sincronización inicial: pedir la lista actual al servidor si tenemos permisos
 timer.Simple(0, function()
@@ -349,6 +350,13 @@ net.Receive("gungame_update_event_status", function()
     
     UpdateEventPanel(active, eventStarter, timeLimit, startTime)
 end)
+
+-- Server tells us if we are participating or not
+net.Receive("gungame_participation", function()
+    GUNGAME.IsParticipant = net.ReadBool()
+end)
+
+-- El bloqueo de F4 se maneja globalmente en autorun (uat_gungame_blockf4.lua) para evitar duplicados.
 
 -- Hook para dibujar el tiempo restante
 hook.Add("HUDPaint", "GunGame_EventHUD", function()
