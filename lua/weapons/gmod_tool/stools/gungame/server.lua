@@ -1171,7 +1171,7 @@ hook.Add("PlayerDeath", "gungame_player_death", function(victim, inflictor, atta
                                      GUNGAME.Weapons[gungame_players[attacker_steamid64].level]
                     
                     -- Enviar mensaje a todos los jugadores
-                    NotifyGunGamePlayers("¡Atención! " .. attacker:Nick() .. " está a 1 arma de ganar.")
+                    NotifyGunGamePlayers("[GunGame] " .. attacker:Nick() .. " está a 1 arma de ganar.")
                 -- Verificar si el jugador ha alcanzado el nivel máximo (última arma)
                 elseif gungame_players[attacker_steamid64].level > #GUNGAME.Weapons then
                     HandlePlayerWin(attacker)
