@@ -91,42 +91,6 @@ net.Receive("gungame_humiliation", function()
     end
 end)
 
--- Handle player won notification with prize
-net.Receive("gungame_player_won", function()
-    local winner = net.ReadEntity()
-    local prizeAmount = net.ReadUInt(32)
-    local event_starter_money = LocalPlayer():getDarkRPVar("money") or 0
-    
-    if not IsValid(winner) or not prizeAmount or prizeAmount <= 0 or winner == LocalPlayer() then return end
-    
-
-    if event_starter_money < prizeAmount then
-        Derma_Query(
-            "No tienes suficiente dinero para pagar el premio $" .. prizeAmount .. "\n ¿Quieres dar el resto de tu dinero al ganador " .. winner:Nick() .. "?",
-            "Confirmación de premio",
-            "Sí", function()
-                net.Start("gungame_transfer_prize")
-                    net.WriteEntity(winner)
-                    net.WriteUInt(event_starter_money, 32)
-                net.SendToServer()
-            end,
-            "No"
-        )
-    else
-        Derma_Query(
-            "¿Quieres dar el premio de $" .. prizeAmount .. " al ganador " .. winner:Nick() .. "?",
-            "Confirmación de premio",
-            "Sí", function()
-                net.Start("gungame_transfer_prize")
-                    net.WriteEntity(winner)
-                    net.WriteUInt(prizeAmount, 32)
-                net.SendToServer()
-            end,
-            "No"
-        )
-    end
-end)
-
 net.Receive("gungame_update_cooldown", function()
     local hasCooldown = net.ReadBool()
     if hasCooldown then
@@ -964,27 +928,27 @@ local function CreateGunGameUI(panel)
     -- Store the regeneration combobox for later use
     GUNGAME.RegenCombo = regenCombo
     
-    -- Prize input
-    local prizeContainer = vgui.Create("DPanel", panel)
-    prizeContainer:Dock(TOP)
-    prizeContainer:DockMargin(0, 0, 0, 8)
-    prizeContainer:SetTall(28)
-    prizeContainer:SetPaintBackground(false)
+    -- Entry fee input
+    local entryContainer = vgui.Create("DPanel", panel)
+    entryContainer:Dock(TOP)
+    entryContainer:DockMargin(0, 0, 0, 8)
+    entryContainer:SetTall(28)
+    entryContainer:SetPaintBackground(false)
     
-    local prizeLabel = vgui.Create("DLabel", prizeContainer)
-    prizeLabel:Dock(LEFT)
-    prizeLabel:SetWide(100)
-    prizeLabel:SetText("Premio:")
-    prizeLabel:SetTextColor(Color(40, 40, 40))
+    local entryLabel = vgui.Create("DLabel", entryContainer)
+    entryLabel:Dock(LEFT)
+    entryLabel:SetWide(100)
+    entryLabel:SetText("Entrada:")
+    entryLabel:SetTextColor(Color(40, 40, 40))
     
-    local prizeEntry = vgui.Create("DTextEntry", prizeContainer)
-    prizeEntry:Dock(FILL)
-    prizeEntry:SetPlaceholderText("0")
-    prizeEntry:SetNumeric(true) -- Only allow numbers
-    prizeEntry:SetValue("0")
+    local entryEntry = vgui.Create("DTextEntry", entryContainer)
+    entryEntry:Dock(FILL)
+    entryEntry:SetPlaceholderText("0")
+    entryEntry:SetNumeric(true) -- Only allow numbers
+    entryEntry:SetValue("0")
     
-    -- Store the prize entry for later use
-    GUNGAME.PrizeEntry = prizeEntry
+    -- Store the entry fee input for later use
+    GUNGAME.EntryEntry = entryEntry
 
     -- Event control button
     GUNGAME.EventActive = false
@@ -1092,7 +1056,7 @@ local function CreateGunGameUI(panel)
             timeEntry:SetEnabled(false)
             speedEntry:SetEnabled(false)
             regenCombo:SetEnabled(false)
-            prizeEntry:SetEnabled(false)
+            entryEntry:SetEnabled(false)
         else
             btnStart:SetText("Iniciar evento")
             btnSelect:SetEnabled(true)
@@ -1107,7 +1071,7 @@ local function CreateGunGameUI(panel)
             timeEntry:SetEnabled(true)
             speedEntry:SetEnabled(true)
             regenCombo:SetEnabled(true)
-            prizeEntry:SetEnabled(true)
+            entryEntry:SetEnabled(true)
             UpdateStartButtonState()
         end
     end
@@ -1181,7 +1145,7 @@ local function CreateGunGameUI(panel)
                 "Armadura: " .. (GUNGAME.ArmorEntry:GetValue() or "100") .. "\n" ..
                 "Cuchillo: " .. (GUNGAME.KnifeEntry:GetValue() or "weapon_knife") .. "\n" ..
                 "Tiempo limite: " .. timeDisplay .. "\n" ..
-                "Premio: " .. (GUNGAME.PrizeEntry:GetValue() or "none") .. "\n",
+                "Entrada: $" .. (GUNGAME.EntryEntry:GetValue() or "0") .. "\n",
                 "Confirmar inicio del evento",
                 "Sí", function()
                     -- Get and validate knife class
@@ -1214,9 +1178,9 @@ local function CreateGunGameUI(panel)
                         end
                         net.WriteUInt(regenOption, 2) -- Using 2 bits (0-3)
                         
-                        -- Send prize amount
-                        local prizeAmount = math.max(0, tonumber(GUNGAME.PrizeEntry:GetValue()) or 0)
-                        net.WriteUInt(prizeAmount, 32) -- Using 32 bits for prize amount
+                        -- Send entry fee amount
+                        local entryFee = math.max(0, tonumber(GUNGAME.EntryEntry:GetValue()) or 0)
+                        net.WriteUInt(entryFee, 32) -- Using 32 bits for entry fee
                         
                         -- Send knife class
                         net.WriteString(knifeClass)

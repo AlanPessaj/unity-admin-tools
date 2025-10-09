@@ -21,8 +21,6 @@ util.AddNetworkString("GunGame_CreateHologram")
 util.AddNetworkString("GunGame_PlayerTouchedHologram")
 util.AddNetworkString("GunGame_RemoveHologram")
 util.AddNetworkString("gungame_play_pickup_sound")
-util.AddNetworkString("gungame_player_won")
-util.AddNetworkString("gungame_transfer_prize")
 util.AddNetworkString("gungame_update_event_status")
 util.AddNetworkString("gungame_validate_weapon")
 util.AddNetworkString("gungame_weapon_validated")
@@ -71,6 +69,8 @@ local starterCooldowns = {}
 local GLOBAL_COOLDOWN_DURATION = 30 * 60 -- 30 minutes
 local GLOBAL_COOLDOWN_KEY = "__GLOBAL__"
 local globalCooldownExpiry = 0
+local gungame_event_pot = 0
+local gungame_entry_contributors = {}
 
 local function EnsureCooldownTable()
     if not sql or not sql.TableExists then return end
@@ -142,6 +142,31 @@ local function FormatCooldown(seconds)
     end
 
     return table.concat(parts, " ")
+end
+
+local function PlayerCanAfford(ply, amount)
+    if not IsValid(ply) or amount <= 0 then return true end
+    if ply.canAfford then
+        local ok, can = pcall(ply.canAfford, ply, amount)
+        if ok then return can end
+    end
+    if ply.getDarkRPVar then
+        local money = ply:getDarkRPVar("money")
+        if money ~= nil then
+            return tonumber(money) and tonumber(money) >= amount
+        end
+    end
+    return false
+end
+
+local function PlayerAddMoney(ply, amount)
+    if not IsValid(ply) then return false end
+    if amount == 0 then return true end
+    if ply.addMoney then
+        local ok = pcall(ply.addMoney, ply, amount)
+        return ok ~= false
+    end
+    return false
 end
 
 local function SendCooldownToPlayer(ply)
@@ -543,7 +568,7 @@ net.Receive("gungame_options", function(len, ply)
     local speedMultiplier = net.ReadFloat()
     local timeLimit = net.ReadUInt(16)
     local regenOption = net.ReadUInt(2) -- Read regeneration option (0-3)
-    local prizeAmount = net.ReadUInt(32) -- Read prize amount
+    local entryFee = net.ReadUInt(32) -- Read entry fee
     local knifeClass = net.ReadString() -- Read knife class
     
     -- Validate knife class (ensure it's a valid weapon)
@@ -556,7 +581,7 @@ net.Receive("gungame_options", function(len, ply)
     GUNGAME.PlayerArmor = armor
     GUNGAME.PlayerSpeedMultiplier = math.max(0.1, math.min(10.0, speedMultiplier))
     GUNGAME.RegenOption = regenOption -- Store regeneration option (0: Disabled, 1: Enabled, 2: Slow, 3: Confirmed Kill)
-    GUNGAME.PrizeAmount = prizeAmount -- Store the prize amount
+    GUNGAME.EntryFee = entryFee -- Store the entry fee
     GUNGAME.KnifeClass = knifeClass -- Store the knife class
     
     if timeLimit < 0 then
@@ -572,6 +597,20 @@ end)
 
 -- Función para detener el evento de GunGame
 function GUNGAME.StopEvent()
+    if gungame_event_pot > 0 and not has_winner then
+        for steamid64, amount in pairs(gungame_entry_contributors) do
+            if amount and amount > 0 then
+                local ply = player.GetBySteamID64(steamid64)
+                if IsValid(ply) then
+                    PlayerAddMoney(ply, amount)
+                    ply:ChatPrint("[GunGame] Se te devolvió $" .. amount .. " de la entrada.")
+                end
+            end
+        end
+    end
+    gungame_event_pot = 0
+    gungame_entry_contributors = {}
+
     for steamid64, data in pairs(gungame_players) do
         if IsValid(data.player) then
             data.player:StripWeapons()
@@ -625,15 +664,8 @@ end
 
 -- Función para manejar la victoria de un jugador
 local function HandlePlayerWin(ply)
-        -- Enviar lista restaurada a todos
-        net.Start("gungame_sync_weapon_list")
-            net.WriteUInt(#GUNGAME.Weapons, 8)
-            for _, w in ipairs(GUNGAME.Weapons) do
-                net.WriteString(w)
-            end
-        net.Broadcast()
     if not IsValid(ply) or has_winner then return end
-    
+
     has_winner = true
     local winnerName = ply:Nick()
 
@@ -641,25 +673,39 @@ local function HandlePlayerWin(ply)
         ApplyStarterCooldown(event_starter_sid64)
     end
     ApplyGlobalCooldown()
-    
-    -- Notificar a los jugadores del evento
+
+    local potAmount = math.max(0, gungame_event_pot or 0)
     NotifyGunGamePlayers("[GunGame] ¡" .. winnerName .. " ha ganado el GunGame!")
-    
+
+    if potAmount > 0 then
+        if PlayerAddMoney(ply, potAmount) then
+            ply:ChatPrint("[GunGame] Ganaste $" .. potAmount .. " del pozo de entradas.")
+        else
+            ply:ChatPrint("[GunGame] Hubo un problema al entregar el pozo. Contacta a un administrador.")
+        end
+        NotifyGunGamePlayers("[GunGame] " .. winnerName .. " se lleva $" .. potAmount .. " del pozo.")
+    end
+    gungame_event_pot = 0
+    gungame_entry_contributors = {}
+
     -- Reproducir sonido solo para el ganador
     net.Start("gungame_play_end_sound")
     net.WriteEntity(ply)
     net.Broadcast()
-    
-    -- Detener el evento después de 5 segundos
+
+    -- Sincronizar lista de armas por si se restauró
+    if GUNGAME.Weapons then
+        net.Start("gungame_sync_weapon_list")
+            net.WriteUInt(#GUNGAME.Weapons, 8)
+            for _, w in ipairs(GUNGAME.Weapons) do
+                net.WriteString(w)
+            end
+        net.Broadcast()
+    end
+
+    -- Programar la detención del evento
     timer.Simple(5, function()
         GUNGAME.StopEvent()
-        -- Si hay un premio y hay un iniciador del evento, notificarle
-        if GUNGAME.PrizeAmount and GUNGAME.PrizeAmount > 0 and IsValid(event_starter) then
-            net.Start("gungame_player_won")
-                net.WriteEntity(ply)
-                net.WriteUInt(GUNGAME.PrizeAmount, 32)
-            net.Send(event_starter)
-        end
     end)
 end
 
@@ -921,17 +967,99 @@ net.Receive("gungame_start_event", function(_, ply)
         end
     end
     table.Shuffle(playersInArea)
-    
-    -- Ahora asignar un spawn point a cada jugador
+    gungame_event_pot = 0
+    gungame_entry_contributors = {}
+    local entryFee = tonumber(GUNGAME.EntryFee) or 0
+    local eligiblePlayers = {}
+
     for _, p in ipairs(playersInArea) do
+        if not IsValid(p) then continue end
         local steamid64 = p:SteamID64()
-        if not gungame_players[steamid64] then
+        if not steamid64 or gungame_entry_contributors[steamid64] ~= nil then continue end
+
+        local allow = true
+        local paid = 0
+
+        if entryFee > 0 then
+            if not PlayerCanAfford(p, entryFee) then
+                allow = false
+                p:ChatPrint("[GunGame] Necesitas $" .. entryFee .. " para pagar la entrada del evento.")
+            else
+                if PlayerAddMoney(p, -entryFee) then
+                    paid = entryFee
+                    gungame_event_pot = gungame_event_pot + entryFee
+                    p:ChatPrint("[GunGame] Se te cobró $" .. entryFee .. " para participar en el GunGame.")
+                else
+                    allow = false
+                    p:ChatPrint("[GunGame] No se pudo cobrar la entrada. Intenta nuevamente.")
+                end
+            end
+        end
+
+        if allow then
+            gungame_entry_contributors[steamid64] = paid
+            table.insert(eligiblePlayers, p)
+        else
+            if IsValid(event_starter) then
+                event_starter:ChatPrint("[GunGame] " .. (p:Nick() or "Un jugador") .. " no pudo pagar la entrada.")
+            end
+            gungame_entry_contributors[steamid64] = nil
+        end
+    end
+
+    local minPlayersNeeded = tonumber(GUNGAME.MinPlayersNeeded) or 0
+    local availableSpawns = #validSpawnPoints
+    if #eligiblePlayers > availableSpawns then
+        table.sort(eligiblePlayers, function(a, b)
+            return (a:Ping() or 0) < (b:Ping() or 0)
+        end)
+        while #eligiblePlayers > availableSpawns do
+            local removed = table.remove(eligiblePlayers)
+            if IsValid(removed) then
+                local sid = removed:SteamID64()
+                local refund = gungame_entry_contributors[sid]
+                if refund and refund > 0 then
+                    PlayerAddMoney(removed, refund)
+                    removed:ChatPrint("[GunGame] No hay suficientes puntos de spawn. Se te devolvió $" .. refund .. ".")
+                    gungame_event_pot = gungame_event_pot - refund
+                end
+                if IsValid(event_starter) then
+                    event_starter:ChatPrint("[GunGame] " .. removed:Nick() .. " quedó fuera por falta de spawn disponible.")
+                end
+                gungame_entry_contributors[sid] = nil
+            end
+        end
+    end
+
+    if #eligiblePlayers < minPlayersNeeded then
+        for steamid64, amount in pairs(gungame_entry_contributors) do
+            if amount and amount > 0 then
+                local participant = player.GetBySteamID64(steamid64)
+                if IsValid(participant) then
+                    PlayerAddMoney(participant, amount)
+                    participant:ChatPrint("[GunGame] Se canceló el evento. Se te devolvió $" .. amount .. ".")
+                end
+            end
+        end
+        gungame_event_pot = 0
+        gungame_entry_contributors = {}
+        ply:ChatPrint("No hay suficientes jugadores con fondos para iniciar el evento.")
+        net.Start("gungame_set_button_state")
+            net.WriteBool(false)
+        net.Broadcast()
+        return
+    end
+
+    -- Ahora asignar un spawn point a cada jugador válido
+    for _, p in ipairs(eligiblePlayers) do
+        local steamid64 = p:SteamID64()
+        if steamid64 and not gungame_players[steamid64] then
             local spawnPoint = validSpawnPoints[spawnIndex]
             if not spawnPoint and #validSpawnPoints > 0 then
                 spawnIndex = 1
                 spawnPoint = validSpawnPoints[spawnIndex]
             end
-            
+
             gungame_players[steamid64] = {
                 player = p,
                 kills = 0,
@@ -946,7 +1074,7 @@ net.Receive("gungame_start_event", function(_, ply)
                 p:SetEyeAngles(spawnPoint.ang or Angle(0, 0, 0))
                 spawnIndex = spawnIndex + 1
             end
-            
+
             p:StripWeapons()
             p:SetHealth(GUNGAME.PlayerHealth)
             p:SetArmor(GUNGAME.PlayerArmor)
@@ -961,11 +1089,15 @@ net.Receive("gungame_start_event", function(_, ply)
                     p:SelectWeapon(firstWeapon)
                 end
             end
-            
+
             p:SetWalkSpeed(160 * GUNGAME.PlayerSpeedMultiplier)
             p:SetRunSpeed(255 * GUNGAME.PlayerSpeedMultiplier)
             p:SetSlowWalkSpeed(120 * GUNGAME.PlayerSpeedMultiplier)
         end
+    end
+
+    if entryFee > 0 then
+        ply:ChatPrint(string.format("[GunGame] Se recaudaron $%d de entrada (%d jugadores).", gungame_event_pot, playerCount))
     end
 
     -- Iniciar el evento
@@ -1712,39 +1844,4 @@ hook.Add("PlayerInitialSpawn", "GunGame_SendSpawnPoints", function(ply)
             end
         end
     end)
-end)
-
--- Handle prize money transfer
-net.Receive("gungame_transfer_prize", function(_, ply)
-    if not IsValid(ply) or not ply:IsPlayer() then return end
-    
-    -- Only the event starter can transfer money
-    if ply ~= event_starter then return end
-    
-    local winner = net.ReadEntity()
-    local prizeAmount = net.ReadUInt(32)
-    
-    -- Validate the winner and amount
-    if not IsValid(winner) or not winner:IsPlayer() or prizeAmount <= 0 then return end
-    
-    -- Check if the event starter has enough money
-    local starterMoney = ply:getDarkRPVar("money") or 0
-    if starterMoney < prizeAmount then
-        DarkRP.notify(ply, 1, 5, "No tienes suficiente dinero para este premio.")
-        return
-    end
-    
-    -- Take money from the event starter
-    ply:addMoney(-prizeAmount)
-    
-    -- Give money to the winner
-    winner:addMoney(prizeAmount)
-    
-    -- Notify both players
-    DarkRP.notify(ply, 3, 5, "Has dado $" .. prizeAmount .. " a " .. winner:Nick())
-    DarkRP.notify(winner, 3, 5, "Has recibido $" .. prizeAmount .. " por ganar el GunGame!")
-
-    -- Log the transaction
-    print(string.format("[GunGame] %s (%s) gave $%d to %s (%s) as a prize",
-        ply:Nick(), ply:SteamID(), prizeAmount, winner:Nick(), winner:SteamID()))
 end)
