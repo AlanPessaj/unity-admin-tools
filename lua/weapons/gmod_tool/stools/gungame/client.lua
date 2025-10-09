@@ -20,6 +20,13 @@ GUNGAME.EventTimeLeft = 0
 GUNGAME.EventStartTime = 0
 GUNGAME.TopPlayers = {}
 local weaponListPanel
+-- Asegurar sincronización inicial: pedir la lista actual al servidor si tenemos permisos
+timer.Simple(0, function()
+    if HasGunGameAccess(LocalPlayer()) then
+        net.Start("gungame_request_weapon_list")
+        net.SendToServer()
+    end
+end)
 
 -- Language strings
 language.Add("tool.gungame.name", "[CGO] GunGame Tool")
@@ -731,6 +738,12 @@ local function CreateGunGameUI(panel)
     weaponListPanel:SetPaintBackground(true)
     weaponListPanel.Paint = function(self, w, h)
         draw.RoundedBox(4, 0, 0, w, h, Color(240, 240, 240))
+    end
+
+    -- Al construir la UI, solicitar al servidor la lista actual (evita mostrar lista vacía)
+    if HasGunGameAccess(LocalPlayer()) then
+        net.Start("gungame_request_weapon_list")
+        net.SendToServer()
     end
     
     -- Options Label

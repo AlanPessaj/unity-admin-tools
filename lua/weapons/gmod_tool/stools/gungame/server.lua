@@ -46,6 +46,7 @@ util.AddNetworkString("gungame_set_button_state")
 util.AddNetworkString("gungame_humiliation")
 util.AddNetworkString("gungame_restore_visuals")
 util.AddNetworkString("gungame_sync_weapon_list")
+util.AddNetworkString("gungame_request_weapon_list")
 
 -- Server state
 local selecting = {}
@@ -424,6 +425,19 @@ function GUNGAME.StopEvent()
     net.Start("gungame_update_spawnpoints")
         net.WriteTable({})
     net.Broadcast()
+
+    -- Restaurar armas por defecto y sincronizar con todos los clientes
+    if GUNGAME.RestoreDefaultWeapons then
+        GUNGAME.RestoreDefaultWeapons()
+        if GUNGAME.Weapons then
+            net.Start("gungame_sync_weapon_list")
+                net.WriteUInt(#GUNGAME.Weapons, 8)
+                for _, w in ipairs(GUNGAME.Weapons) do
+                    net.WriteString(w)
+                end
+            net.Broadcast()
+        end
+    end
 end
 
 -- Función para manejar la victoria de un jugador
@@ -515,6 +529,19 @@ net.Receive("gungame_sync_weapons", function(_, ply)
         end
     end
     GUNGAME.Weapons = weaponsList
+end)
+
+-- Responder con la lista de armas actual al cliente que lo solicite
+net.Receive("gungame_request_weapon_list", function(_, ply)
+    if not IsValid(ply) then return end
+    if not HasGunGameAccess(ply) then return end
+    local list = GUNGAME.Weapons or {}
+    net.Start("gungame_sync_weapon_list")
+        net.WriteUInt(#list, 8)
+        for _, w in ipairs(list) do
+            net.WriteString(w)
+        end
+    net.Send(ply)
 end)
 net.Receive("gungame_clear_weapons", function(len, ply)
     if not IsValid(ply) then return end
