@@ -49,8 +49,8 @@ net.Receive("GunGame_CreateHologram", function()
         baseZ = centerPos.z
     }
 
-    -- Eliminar después de 5 segundos
-    timer.Simple(10, function()
+    -- Eliminar después de 8 segundos
+    timer.Simple(8, function()
         SafeRemoveEntity(ent)
         holograms[holoID] = nil
     end)
