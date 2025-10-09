@@ -45,6 +45,7 @@ util.AddNetworkString("gungame_update_event_status")
 util.AddNetworkString("gungame_set_button_state")
 util.AddNetworkString("gungame_humiliation")
 util.AddNetworkString("gungame_restore_visuals")
+util.AddNetworkString("gungame_sync_weapon_list")
 
 -- Server state
 local selecting = {}
@@ -427,6 +428,13 @@ end
 
 -- Función para manejar la victoria de un jugador
 local function HandlePlayerWin(ply)
+        -- Enviar lista restaurada a todos
+        net.Start("gungame_sync_weapon_list")
+            net.WriteUInt(#GUNGAME.Weapons, 8)
+            for _, w in ipairs(GUNGAME.Weapons) do
+                net.WriteString(w)
+            end
+        net.Broadcast()
     if not IsValid(ply) or has_winner then return end
     
     has_winner = true
@@ -514,6 +522,7 @@ net.Receive("gungame_clear_weapons", function(len, ply)
         ply:ChatPrint("Error: Ya hay un evento de GunGame activo.")
         return
     end
+    -- El usuario pidió que al pulsar Clear se borren todas las armas (lista vacía temporal)
     GUNGAME.Weapons = {}
     net.Start("gungame_clear_weapons")
     net.Broadcast()
@@ -549,6 +558,11 @@ net.Receive("gungame_area_clear", function(_, ply)
     net.Start("gungame_area_update_points")
         net.WriteTable({})
     net.Broadcast()
+
+    -- Restaurar armas por defecto tras finalizar cualquier evento
+    if GUNGAME.RestoreDefaultWeapons then
+        GUNGAME.RestoreDefaultWeapons()
+    end
 end)
 
 -- Función para dar un arma a un jugador según su índice de kill
@@ -901,6 +915,16 @@ net.Receive("gungame_stop_event", function(_, ply)
     net.Start("gungame_update_spawnpoints")
         net.WriteTable({})
     net.Broadcast()
+    -- También restaurar armas por defecto cuando se detiene manualmente
+    if GUNGAME.RestoreDefaultWeapons then
+        GUNGAME.RestoreDefaultWeapons()
+        net.Start("gungame_sync_weapon_list")
+            net.WriteUInt(#GUNGAME.Weapons, 8)
+            for _, w in ipairs(GUNGAME.Weapons) do
+                net.WriteString(w)
+            end
+        net.Broadcast()
+    end
 end)
 
 -- Hooks
@@ -1423,6 +1447,16 @@ hook.Add("PlayerInitialSpawn", "GunGame_SendSpawnPoints", function(ply)
             net.Start("gungame_update_spawnpoints")
                 net.WriteTable(spawnPoints)
             net.Send(ply)
+
+            -- Enviar lista de armas actual (defaults si aplica)
+            if GUNGAME.Weapons then
+                net.Start("gungame_sync_weapon_list")
+                    net.WriteUInt(#GUNGAME.Weapons, 8)
+                    for _, w in ipairs(GUNGAME.Weapons) do
+                        net.WriteString(w)
+                    end
+                net.Send(ply)
+            end
         end
     end)
 end)

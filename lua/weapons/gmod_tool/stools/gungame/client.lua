@@ -6,7 +6,14 @@ GUNGAME.AreaPoints = {}
 GUNGAME.AreaPanel = nil
 GUNGAME.SpawnPoints = {}
 GUNGAME.SpawnPanel = nil
-GUNGAME.Weapons = {}
+-- Si el servidor aún no definió armas y el cliente abre el menú, mostrar defaults locales
+if not GUNGAME.Weapons or #GUNGAME.Weapons == 0 then
+    if GUNGAME.DEFAULT_WEAPONS then
+        GUNGAME.Weapons = table.Copy(GUNGAME.DEFAULT_WEAPONS)
+    else
+        GUNGAME.Weapons = {}
+    end
+end
 GUNGAME.EventPanel = nil
 GUNGAME.EventActive = false
 GUNGAME.EventTimeLeft = 0
@@ -495,6 +502,18 @@ end)
 net.Receive("gungame_clear_weapons", function()
     if not HasGunGameAccess(LocalPlayer()) then return end
     ClearWeaponList()
+    hook.Run("GunGame_WeaponsUpdated")
+end)
+
+-- Recepción de la lista completa de armas desde el servidor (default o restaurada tras evento)
+net.Receive("gungame_sync_weapon_list", function()
+    local count = net.ReadUInt(8)
+    local newList = {}
+    for i = 1, count do
+        table.insert(newList, net.ReadString())
+    end
+    GUNGAME.Weapons = newList
+    UpdateWeaponList()
     hook.Run("GunGame_WeaponsUpdated")
 end)
 

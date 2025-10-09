@@ -1,5 +1,23 @@
 GUNGAME = GUNGAME or {}
-GUNGAME.Weapons = GUNGAME.Weapons or {}
+
+-- Armas por defecto del GunGame
+GUNGAME.DEFAULT_WEAPONS = {
+    "arccw_ak47",
+    "arccw_ump45",
+    "arccw_ragingbull",
+    "arccw_go_ssg08",
+    "arccw_melee_machete"
+}
+
+-- Si no hay armas definidas aún, usar los defaults
+if not GUNGAME.Weapons or #GUNGAME.Weapons == 0 then
+    GUNGAME.Weapons = table.Copy(GUNGAME.DEFAULT_WEAPONS)
+end
+
+-- Función para restaurar las armas por defecto
+function GUNGAME.RestoreDefaultWeapons()
+    GUNGAME.Weapons = table.Copy(GUNGAME.DEFAULT_WEAPONS)
+end
 
 
 -- Default player settings
