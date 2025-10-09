@@ -68,6 +68,9 @@ local regenerating_players = {}
 local STARTER_COOLDOWN_DURATION = 2 * 60 * 60 -- 2 hours
 local STARTER_COOLDOWN_TABLE = "uat_gungame_cooldowns"
 local starterCooldowns = {}
+local GLOBAL_COOLDOWN_DURATION = 30 * 60 -- 30 minutes
+local GLOBAL_COOLDOWN_KEY = "__GLOBAL__"
+local globalCooldownExpiry = 0
 
 local function EnsureCooldownTable()
     if not sql or not sql.TableExists then return end
@@ -82,6 +85,16 @@ local function EnsureCooldownTable()
     sql.Query(query)
 end
 
+local function CleanupGlobalCooldown()
+    if not globalCooldownExpiry or globalCooldownExpiry <= 0 then return end
+    if globalCooldownExpiry > os.time() then return end
+
+    globalCooldownExpiry = 0
+    if sql and sql.TableExists and sql.TableExists(STARTER_COOLDOWN_TABLE) then
+        sql.Query("DELETE FROM " .. STARTER_COOLDOWN_TABLE .. " WHERE steamid64 = " .. sql.SQLStr(GLOBAL_COOLDOWN_KEY) .. ";")
+    end
+end
+
 local function LoadStarterCooldowns()
     starterCooldowns = {}
     EnsureCooldownTable()
@@ -94,7 +107,14 @@ local function LoadStarterCooldowns()
     for _, row in ipairs(rows) do
         local steam64 = row.steamid64
         local expiry = tonumber(row.expires)
-        if isstring(steam64) and steam64 ~= "" and expiry and expiry > now then
+        if steam64 == GLOBAL_COOLDOWN_KEY then
+            if expiry and expiry > now then
+                globalCooldownExpiry = expiry
+            else
+                globalCooldownExpiry = 0
+                sql.Query("DELETE FROM " .. STARTER_COOLDOWN_TABLE .. " WHERE steamid64 = " .. sql.SQLStr(steam64) .. ";")
+            end
+        elseif isstring(steam64) and steam64 ~= "" and expiry and expiry > now then
             starterCooldowns[steam64] = expiry
         elseif isstring(steam64) and steam64 ~= "" then
             sql.Query("DELETE FROM " .. STARTER_COOLDOWN_TABLE .. " WHERE steamid64 = " .. sql.SQLStr(steam64) .. ";")
@@ -131,7 +151,22 @@ local function SendCooldownToPlayer(ply)
     if not steam64 then return end
 
     local now = os.time()
-    local expiry = starterCooldowns[steam64]
+    CleanupGlobalCooldown()
+    local personal = starterCooldowns[steam64]
+    if personal and personal <= now then
+        starterCooldowns[steam64] = nil
+        if sql and sql.TableExists and sql.TableExists(STARTER_COOLDOWN_TABLE) then
+            sql.Query("DELETE FROM " .. STARTER_COOLDOWN_TABLE .. " WHERE steamid64 = " .. sql.SQLStr(steam64) .. ";")
+        end
+        personal = nil
+    end
+
+    local expiry = personal
+    if globalCooldownExpiry and globalCooldownExpiry > now then
+        if not expiry or globalCooldownExpiry > expiry then
+            expiry = globalCooldownExpiry
+        end
+    end
 
     if expiry and expiry > now then
         local remaining = math.max(0, expiry - now)
@@ -140,13 +175,17 @@ local function SendCooldownToPlayer(ply)
             net.WriteUInt(math.min(remaining, 4294967295), 32)
         net.Send(ply)
     else
-        starterCooldowns[steam64] = nil
-        if sql and sql.TableExists and sql.TableExists(STARTER_COOLDOWN_TABLE) then
-            sql.Query("DELETE FROM " .. STARTER_COOLDOWN_TABLE .. " WHERE steamid64 = " .. sql.SQLStr(steam64) .. ";")
-        end
         net.Start("gungame_update_cooldown")
             net.WriteBool(false)
         net.Send(ply)
+    end
+end
+
+local function BroadcastCooldownStatus()
+    for _, ply in ipairs(player.GetAll()) do
+        if HasGunGameAccess(ply) then
+            SendCooldownToPlayer(ply)
+        end
     end
 end
 
@@ -170,6 +209,39 @@ local function ApplyStarterCooldown(steam64)
         ply:ChatPrint(message)
     end
 end
+
+local function ApplyGlobalCooldown()
+    local expiry = os.time() + GLOBAL_COOLDOWN_DURATION
+    globalCooldownExpiry = expiry
+
+    if sql and sql.TableExists then
+        EnsureCooldownTable()
+        sql.Query("REPLACE INTO " .. STARTER_COOLDOWN_TABLE .. " (steamid64, expires) VALUES (" .. sql.SQLStr(GLOBAL_COOLDOWN_KEY) .. ", " .. expiry .. ");")
+    end
+
+    BroadcastCooldownStatus()
+end
+
+local function ResetAllCooldowns()
+    starterCooldowns = {}
+    globalCooldownExpiry = 0
+
+    if sql and sql.TableExists and sql.TableExists(STARTER_COOLDOWN_TABLE) then
+        sql.Query("DELETE FROM " .. STARTER_COOLDOWN_TABLE .. ";")
+    end
+
+    BroadcastCooldownStatus()
+end
+
+concommand.Add("gungame_reset_cooldowns", function(ply)
+    if IsValid(ply) then
+        ply:ChatPrint("Este comando solo puede ejecutarse desde la consola del servidor.")
+        return
+    end
+
+    ResetAllCooldowns()
+    print("[GunGame] Todos los cooldowns han sido restablecidos manualmente.")
+end)
 
 LoadStarterCooldowns()
 
@@ -568,6 +640,7 @@ local function HandlePlayerWin(ply)
     if event_starter_sid64 then
         ApplyStarterCooldown(event_starter_sid64)
     end
+    ApplyGlobalCooldown()
     
     -- Notificar a los jugadores del evento
     NotifyGunGamePlayers("[GunGame] ¡" .. winnerName .. " ha ganado el GunGame!")
@@ -767,6 +840,7 @@ net.Receive("gungame_start_event", function(_, ply)
         ply:ChatPrint("Error: No tienes permisos para usar esta herramienta.")
         return 
     end
+    CleanupGlobalCooldown()
 
     local starterSteam64 = ply:SteamID64()
     if not starterSteam64 or starterSteam64 == "" then
@@ -790,6 +864,16 @@ net.Receive("gungame_start_event", function(_, ply)
             sql.Query("DELETE FROM " .. STARTER_COOLDOWN_TABLE .. " WHERE steamid64 = " .. sql.SQLStr(starterSteam64) .. ";")
         end
         SendCooldownToPlayer(ply)
+    end
+
+    if globalCooldownExpiry and globalCooldownExpiry > now then
+        local remainingGlobal = globalCooldownExpiry - now
+        ply:ChatPrint(string.format(
+            "[GunGame] Debes esperar %s antes de iniciar un nuevo evento.",
+            FormatCooldown(remainingGlobal)
+        ))
+        SendCooldownToPlayer(ply)
+        return
     end
     
     -- Verificar si ya hay un evento activo
