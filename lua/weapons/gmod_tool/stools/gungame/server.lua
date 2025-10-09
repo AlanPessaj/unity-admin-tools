@@ -6,6 +6,7 @@ include("shared.lua")
 util.AddNetworkString("gungame_area_start")
 util.AddNetworkString("gungame_area_clear")
 util.AddNetworkString("gungame_area_update_points")
+util.AddNetworkString("gungame_update_cooldown")
 util.AddNetworkString("gungame_start_event")
 util.AddNetworkString("gungame_stop_event")
 util.AddNetworkString("gungame_event_stopped")
@@ -58,11 +59,119 @@ local gungame_event_active = false
 local gungame_area_points = {}
 local gungame_respawn_time = {}
 local event_starter = nil
+local event_starter_sid64 = nil
 local has_winner = false
 local event_start_time = 0
 local time_limit_timer = nil
 local top_players_timer = nil
 local regenerating_players = {}
+local STARTER_COOLDOWN_DURATION = 2 * 60 * 60 -- 2 hours
+local STARTER_COOLDOWN_TABLE = "uat_gungame_cooldowns"
+local starterCooldowns = {}
+
+local function EnsureCooldownTable()
+    if not sql or not sql.TableExists then return end
+    if sql.TableExists(STARTER_COOLDOWN_TABLE) then return end
+
+    local query = [[
+        CREATE TABLE IF NOT EXISTS ]] .. STARTER_COOLDOWN_TABLE .. [[ (
+            steamid64 TEXT PRIMARY KEY,
+            expires INTEGER NOT NULL
+        );
+    ]]
+    sql.Query(query)
+end
+
+local function LoadStarterCooldowns()
+    starterCooldowns = {}
+    EnsureCooldownTable()
+    if not sql or not sql.TableExists or not sql.TableExists(STARTER_COOLDOWN_TABLE) then return end
+
+    local rows = sql.Query("SELECT steamid64, expires FROM " .. STARTER_COOLDOWN_TABLE .. ";")
+    if not istable(rows) then return end
+
+    local now = os.time()
+    for _, row in ipairs(rows) do
+        local steam64 = row.steamid64
+        local expiry = tonumber(row.expires)
+        if isstring(steam64) and steam64 ~= "" and expiry and expiry > now then
+            starterCooldowns[steam64] = expiry
+        elseif isstring(steam64) and steam64 ~= "" then
+            sql.Query("DELETE FROM " .. STARTER_COOLDOWN_TABLE .. " WHERE steamid64 = " .. sql.SQLStr(steam64) .. ";")
+        end
+    end
+end
+
+local function FormatCooldown(seconds)
+    seconds = math.max(0, math.floor(seconds or 0))
+    if seconds <= 0 then return "0 segundos" end
+
+    local hours = math.floor(seconds / 3600)
+    local minutes = math.floor((seconds % 3600) / 60)
+    local secs = seconds % 60
+
+    local parts = {}
+    if hours > 0 then
+        table.insert(parts, hours .. " hora" .. (hours ~= 1 and "s" or ""))
+    end
+    if minutes > 0 then
+        table.insert(parts, minutes .. " minuto" .. (minutes ~= 1 and "s" or ""))
+    end
+    if secs > 0 and hours == 0 then
+        table.insert(parts, secs .. " segundo" .. (secs ~= 1 and "s" or ""))
+    end
+
+    return table.concat(parts, " ")
+end
+
+local function SendCooldownToPlayer(ply)
+    if not IsValid(ply) then return end
+
+    local steam64 = ply:SteamID64()
+    if not steam64 then return end
+
+    local now = os.time()
+    local expiry = starterCooldowns[steam64]
+
+    if expiry and expiry > now then
+        local remaining = math.max(0, expiry - now)
+        net.Start("gungame_update_cooldown")
+            net.WriteBool(true)
+            net.WriteUInt(math.min(remaining, 4294967295), 32)
+        net.Send(ply)
+    else
+        starterCooldowns[steam64] = nil
+        if sql and sql.TableExists and sql.TableExists(STARTER_COOLDOWN_TABLE) then
+            sql.Query("DELETE FROM " .. STARTER_COOLDOWN_TABLE .. " WHERE steamid64 = " .. sql.SQLStr(steam64) .. ";")
+        end
+        net.Start("gungame_update_cooldown")
+            net.WriteBool(false)
+        net.Send(ply)
+    end
+end
+
+local function ApplyStarterCooldown(steam64)
+    if not steam64 or steam64 == "" then return end
+
+    local expiry = os.time() + STARTER_COOLDOWN_DURATION
+    starterCooldowns[steam64] = expiry
+    if sql and sql.TableExists then
+        EnsureCooldownTable()
+        sql.Query("REPLACE INTO " .. STARTER_COOLDOWN_TABLE .. " (steamid64, expires) VALUES (" .. sql.SQLStr(steam64) .. ", " .. expiry .. ");")
+    end
+
+    local ply = player.GetBySteamID64(steam64)
+    if IsValid(ply) then
+        SendCooldownToPlayer(ply)
+        local message = string.format(
+            "[GunGame] Debes esperar %s antes de iniciar otro evento.",
+            FormatCooldown(expiry - os.time())
+        )
+        ply:ChatPrint(message)
+    end
+end
+
+LoadStarterCooldowns()
 
 -- Función para enviar mensajes de depuración al iniciador del evento
 local function DebugMessage(msg)
@@ -438,6 +547,8 @@ function GUNGAME.StopEvent()
             net.Broadcast()
         end
     end
+
+    event_starter_sid64 = nil
 end
 
 -- Función para manejar la victoria de un jugador
@@ -453,6 +564,10 @@ local function HandlePlayerWin(ply)
     
     has_winner = true
     local winnerName = ply:Nick()
+
+    if event_starter_sid64 then
+        ApplyStarterCooldown(event_starter_sid64)
+    end
     
     -- Notificar a los jugadores del evento
     NotifyGunGamePlayers("[GunGame] ¡" .. winnerName .. " ha ganado el GunGame!")
@@ -542,6 +657,8 @@ net.Receive("gungame_request_weapon_list", function(_, ply)
             net.WriteString(w)
         end
     net.Send(ply)
+
+    SendCooldownToPlayer(ply)
 end)
 net.Receive("gungame_clear_weapons", function(len, ply)
     if not IsValid(ply) then return end
@@ -650,6 +767,30 @@ net.Receive("gungame_start_event", function(_, ply)
         ply:ChatPrint("Error: No tienes permisos para usar esta herramienta.")
         return 
     end
+
+    local starterSteam64 = ply:SteamID64()
+    if not starterSteam64 or starterSteam64 == "" then
+        ply:ChatPrint("No se pudo determinar tu SteamID64. Intenta nuevamente.")
+        return
+    end
+
+    local now = os.time()
+    local cooldownExpiry = starterCooldowns[starterSteam64]
+    if cooldownExpiry and cooldownExpiry > now then
+        local remaining = cooldownExpiry - now
+        ply:ChatPrint(string.format(
+            "[GunGame] Debes esperar %s antes de iniciar otro evento.",
+            FormatCooldown(remaining)
+        ))
+        SendCooldownToPlayer(ply)
+        return
+    elseif cooldownExpiry and cooldownExpiry <= now then
+        starterCooldowns[starterSteam64] = nil
+        if sql and sql.TableExists and sql.TableExists(STARTER_COOLDOWN_TABLE) then
+            sql.Query("DELETE FROM " .. STARTER_COOLDOWN_TABLE .. " WHERE steamid64 = " .. sql.SQLStr(starterSteam64) .. ";")
+        end
+        SendCooldownToPlayer(ply)
+    end
     
     -- Verificar si ya hay un evento activo
     if gungame_event_active and IsValid(event_starter) then
@@ -672,6 +813,7 @@ net.Receive("gungame_start_event", function(_, ply)
     gungame_area_center = GUNGAME.CalculateCenter(area)
     gungame_players = {}
     event_starter = ply
+    event_starter_sid64 = starterSteam64
 
     -- Obtener puntos de spawn dentro del área
     local validSpawnPoints = {}

@@ -19,6 +19,7 @@ GUNGAME.EventActive = false
 GUNGAME.EventTimeLeft = 0
 GUNGAME.EventStartTime = 0
 GUNGAME.TopPlayers = {}
+GUNGAME.CooldownEndTime = 0
 local weaponListPanel
 -- Asegurar sincronización inicial: pedir la lista actual al servidor si tenemos permisos
 timer.Simple(0, function()
@@ -123,6 +124,20 @@ net.Receive("gungame_player_won", function()
             end,
             "No"
         )
+    end
+end)
+
+net.Receive("gungame_update_cooldown", function()
+    local hasCooldown = net.ReadBool()
+    if hasCooldown then
+        local remaining = net.ReadUInt(32)
+        GUNGAME.CooldownEndTime = CurTime() + remaining
+    else
+        GUNGAME.CooldownEndTime = 0
+    end
+
+    if GUNGAME.RefreshStartButtonState then
+        GUNGAME.RefreshStartButtonState()
     end
 end)
 
@@ -980,23 +995,79 @@ local function CreateGunGameUI(panel)
     btnStart:SetTall(32)
     btnStart:SetFont("UAT_Circular_14")
     btnStart:SetWide(panel:GetWide() - 16)
+    GUNGAME.StartButton = btnStart
+
+    local cooldownLabel = vgui.Create("DLabel", panel)
+    cooldownLabel:Dock(TOP)
+    cooldownLabel:DockMargin(0, 6, 0, 0)
+    cooldownLabel:SetTall(20)
+    cooldownLabel:SetFont("UAT_Circular_13")
+    cooldownLabel:SetTextColor(Color(200, 60, 60))
+    cooldownLabel:SetContentAlignment(5)
+    cooldownLabel:SetVisible(false)
+    GUNGAME.CooldownLabel = cooldownLabel
+
+    local function FormatCooldownTime(seconds)
+        seconds = math.max(0, math.floor(seconds or 0))
+        local hours = math.floor(seconds / 3600)
+        local minutes = math.floor((seconds % 3600) / 60)
+        local secs = seconds % 60
+
+        local parts = {}
+        if hours > 0 then
+            table.insert(parts, hours .. "h")
+        end
+        if minutes > 0 then
+            table.insert(parts, minutes .. "m")
+        end
+        if secs > 0 and hours == 0 then
+            table.insert(parts, secs .. "s")
+        end
+
+        return table.concat(parts, " ")
+    end
 
     -- Update start button state based on conditions
     local function UpdateStartButtonState()
         local hasArea = #GUNGAME.AreaPoints > 0
         local hasWeapons = GUNGAME.Weapons and #GUNGAME.Weapons > 4
+        local cooldownRemaining = math.max(0, math.ceil((GUNGAME.CooldownEndTime or 0) - CurTime()))
+        local cooldownActive = cooldownRemaining > 0
         
         if not GUNGAME.EventActive then
-            btnStart:SetEnabled(hasArea and hasWeapons)
-            if not hasArea then
+            btnStart:SetEnabled(hasArea and hasWeapons and not cooldownActive)
+            if cooldownActive then
+                local text = "Debes esperar " .. FormatCooldownTime(cooldownRemaining) .. " para iniciar otro evento"
+                btnStart:SetTooltip(text)
+                if IsValid(cooldownLabel) then
+                    cooldownLabel:SetVisible(true)
+                    cooldownLabel:SetText(text)
+                end
+            elseif not hasArea then
                 btnStart:SetTooltip("Necesitas definir un área primero")
+                if IsValid(cooldownLabel) then
+                    cooldownLabel:SetVisible(false)
+                    cooldownLabel:SetText("")
+                end
             elseif not hasWeapons then
                 btnStart:SetTooltip("Necesitas añadir al menos cinco armas")
+                if IsValid(cooldownLabel) then
+                    cooldownLabel:SetVisible(false)
+                    cooldownLabel:SetText("")
+                end
             else
                 btnStart:SetTooltip("Iniciar el evento")
+                if IsValid(cooldownLabel) then
+                    cooldownLabel:SetVisible(false)
+                    cooldownLabel:SetText("")
+                end
             end
+        elseif IsValid(cooldownLabel) then
+            cooldownLabel:SetVisible(false)
+            cooldownLabel:SetText("")
         end
     end
+    GUNGAME.RefreshStartButtonState = UpdateStartButtonState
     
     -- Button state management CHECKPOINT BUTTON TOGGLE
     GUNGAME.SetButtonState = function(active)
@@ -1005,6 +1076,10 @@ local function CreateGunGameUI(panel)
             btnStart:SetText("Detener evento")
             btnStart:SetEnabled(true)
             btnStart:SetTooltip("Detener el evento")
+            if IsValid(cooldownLabel) then
+                cooldownLabel:SetVisible(false)
+                cooldownLabel:SetText("")
+            end
             btnSelect:SetEnabled(false)
             btnDelete:SetEnabled(false)
             btnAddSpawn:SetEnabled(false)
@@ -1019,7 +1094,7 @@ local function CreateGunGameUI(panel)
             regenCombo:SetEnabled(false)
             prizeEntry:SetEnabled(false)
         else
-            btnStart:SetText("Start event")
+            btnStart:SetText("Iniciar evento")
             btnSelect:SetEnabled(true)
             btnDelete:SetEnabled(true)
             btnAddSpawn:SetEnabled(true)
@@ -1040,6 +1115,7 @@ local function CreateGunGameUI(panel)
     -- Update button state when weapons or area changes
     hook.Add("GunGame_WeaponsUpdated", "UpdateStartButton", UpdateStartButtonState)
     hook.Add("GunGame_AreaUpdated", "UpdateStartButton", UpdateStartButtonState)
+    UpdateStartButtonState()
 
     -- Función para contar jugadores dentro del área
     local function CountPlayersInArea()
@@ -1064,6 +1140,14 @@ local function CreateGunGameUI(panel)
     -- Start/stop event button handler
     btnStart.DoClick = function()
         if not GUNGAME.EventActive then
+            if (GUNGAME.CooldownEndTime or 0) > CurTime() then
+                local remaining = math.max(0, math.ceil(GUNGAME.CooldownEndTime - CurTime()))
+                local msg = "Debes esperar " .. FormatCooldownTime(remaining) .. " para iniciar otro evento"
+                notification.AddLegacy(msg, NOTIFY_ERROR, 3)
+                surface.PlaySound("buttons/button10.wav")
+                UpdateStartButtonState()
+                return
+            end
             -- Verificar si hay un área definida y armas configuradas
             if #GUNGAME.AreaPoints == 0 or not GUNGAME.Weapons or #GUNGAME.Weapons == 0 then
                 notification.AddLegacy("No se puede iniciar el evento: Falta área o armas", NOTIFY_ERROR, 3)
