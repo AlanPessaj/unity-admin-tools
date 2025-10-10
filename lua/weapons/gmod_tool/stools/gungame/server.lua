@@ -1154,6 +1154,7 @@ net.Receive("gungame_start_event", function(_, ply)
             net.Start("gungame_participation")
                 net.WriteBool(true)
             net.Send(p)
+            UpdateEventStatus(true, p)
             if GUNGAME.Weapons and #GUNGAME.Weapons > 0 then
                 local firstWeapon = GUNGAME.Weapons[1]
                 if firstWeapon then

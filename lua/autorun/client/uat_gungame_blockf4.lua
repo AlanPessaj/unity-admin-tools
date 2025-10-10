@@ -1,6 +1,11 @@
 -- Ensures F4 is blocked while participating in an active GunGame event.
 -- This file runs very early (autorun) to guard against other addons.
 
+if not _G.UAT_GunGameClientLoaded then
+    _G.UAT_GunGameClientLoaded = true
+    include("weapons/gmod_tool/stools/gungame/client.lua")
+end
+
 local IsParticipant = false
 
 net.Receive("gungame_participation", function()
