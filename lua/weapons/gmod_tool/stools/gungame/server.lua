@@ -18,6 +18,7 @@ util.AddNetworkString("gungame_sync_weapons")
 util.AddNetworkString("gungame_debug_message")
 util.AddNetworkString("gungame_options")
 util.AddNetworkString("gungame_update_top_players")
+util.AddNetworkString("gungame_boundary")
 util.AddNetworkString("GunGame_CreateHologram")
 util.AddNetworkString("GunGame_PlayerTouchedHologram")
 util.AddNetworkString("GunGame_RemoveHologram")
@@ -73,6 +74,19 @@ local GLOBAL_COOLDOWN_KEY = "__GLOBAL__"
 local globalCooldownExpiry = 0
 local gungame_event_pot = 0
 local gungame_entry_contributors = {}
+local function SendBoundary(target, points)
+    points = points or {}
+    net.Start("gungame_boundary")
+        net.WriteUInt(math.min(#points, 255), 8)
+        for i = 1, #points do
+            net.WriteVector(points[i])
+        end
+    if IsValid(target) then
+        net.Send(target)
+    else
+        net.Broadcast()
+    end
+end
 
 local function EnsureCooldownTable()
     if not sql or not sql.TableExists then return end
@@ -371,6 +385,7 @@ local function RemoveGunGamePlayer(steamid64)
             net.Start("gungame_participation")
                 net.WriteBool(false)
             net.Send(pdata.player)
+            SendBoundary(pdata.player, {})
         end
         return true
     end
@@ -578,7 +593,7 @@ hook.Add("PlayerDisconnected", "CleanupRegenOnDisconnect", function(ply)
 end)
 
 -- Función para notificar a los clientes sobre el estado del evento
-local function UpdateEventStatus(active)
+local function UpdateEventStatus(active, receiver)
     net.Start("gungame_update_event_status")
         net.WriteBool(active)
         if active then
@@ -586,7 +601,11 @@ local function UpdateEventStatus(active)
             net.WriteUInt(GUNGAME.TimeLimit, 32)
             net.WriteUInt(CurTime(), 32)
         end
-    net.Broadcast()
+    if IsValid(receiver) then
+        net.Send(receiver)
+    else
+        net.Broadcast()
+    end
 end
 
 -- Network receive handler for game options
@@ -637,12 +656,14 @@ function GUNGAME.StopEvent()
                 if IsValid(ply) then
                     PlayerAddMoney(ply, amount)
                     ply:ChatPrint("[GunGame] Se te devolvió $" .. amount .. " de la entrada.")
+                    SendBoundary(ply, {})
                 end
             end
         end
     end
     gungame_event_pot = 0
     gungame_entry_contributors = {}
+    SendBoundary(nil, {})
 
     for steamid64, data in pairs(gungame_players) do
         if IsValid(data.player) then
@@ -650,6 +671,7 @@ function GUNGAME.StopEvent()
             net.Start("gungame_participation")
                 net.WriteBool(false)
             net.Send(data.player)
+            SendBoundary(data.player, {})
             data.player:KillSilent()
         end
     end
@@ -975,11 +997,12 @@ net.Receive("gungame_start_event", function(_, ply)
         return 
     end
 
-    gungame_area_points = area
-    gungame_area_center = GUNGAME.CalculateCenter(area)
-    gungame_players = {}
-    event_starter = ply
-    event_starter_sid64 = starterSteam64
+	gungame_area_points = area
+	gungame_area_center = GUNGAME.CalculateCenter(area)
+	gungame_players = {}
+	event_starter = ply
+	event_starter_sid64 = starterSteam64
+	SendBoundary(nil, gungame_area_points)
 
     -- Obtener puntos de spawn dentro del área
     local validSpawnPoints = {}
@@ -1063,6 +1086,7 @@ net.Receive("gungame_start_event", function(_, ply)
                     event_starter:ChatPrint("[GunGame] " .. removed:Nick() .. " quedó fuera por falta de spawn disponible.")
                 end
                 gungame_entry_contributors[sid] = nil
+                SendBoundary(removed, {})
             end
         end
     end
@@ -1074,6 +1098,7 @@ net.Receive("gungame_start_event", function(_, ply)
                 if IsValid(participant) then
                     PlayerAddMoney(participant, amount)
                     participant:ChatPrint("[GunGame] Se canceló el evento. Se te devolvió $" .. amount .. ".")
+                    SendBoundary(participant, {})
                 end
             end
         end
@@ -1083,6 +1108,7 @@ net.Receive("gungame_start_event", function(_, ply)
         net.Start("gungame_set_button_state")
             net.WriteBool(false)
         net.Broadcast()
+        SendBoundary(nil, {})
         return
     end
 
@@ -1104,6 +1130,7 @@ net.Receive("gungame_start_event", function(_, ply)
                 weaponIndex = 0,
                 spawnPoint = spawnPoint
             }
+            SendBoundary(p, gungame_area_points)
             playerCount = playerCount + 1
             if spawnPoint then
                 p:SetPos(spawnPoint.pos)
@@ -1338,6 +1365,7 @@ net.Receive("gungame_stop_event", function(_, ply)
     gungame_respawn_time = {}
     spawnPoints = {}
     event_start_time = 0
+    SendBoundary(nil, {})
     net.Start("gungame_event_stopped")
     net.Broadcast()
     net.Start("gungame_update_spawnpoints")
@@ -1892,6 +1920,10 @@ hook.Add("PlayerInitialSpawn", "GunGame_SendSpawnPoints", function(ply)
                         net.WriteString(w)
                     end
                 net.Send(ply)
+            end
+            if gungame_event_active then
+                SendBoundary(ply, gungame_area_points)
+                UpdateEventStatus(true, ply)
             end
         end
     end)

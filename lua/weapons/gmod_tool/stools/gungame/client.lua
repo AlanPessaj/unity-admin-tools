@@ -21,6 +21,32 @@ GUNGAME.EventStartTime = 0
 GUNGAME.TopPlayers = {}
 GUNGAME.CooldownEndTime = 0
 GUNGAME.IsParticipant = false
+GUNGAME.EventBoundaryPoints = {}
+local boundaryMaterial = CreateMaterial("uat_gungame_boundary", "UnlitGeneric", {
+    ["$basetexture"] = "models/debug/debugwhite",
+    ["$translucent"] = "1",
+    ["$additive"] = "0",
+    ["$vertexcolor"] = "1",
+    ["$vertexalpha"] = "1"
+})
+local boundaryHeight = 1000
+local boundaryVisibilityDistance = 750
+local boundaryMaxAlpha = 255
+local function DistanceToSegment2D(point, a, b)
+    local p2 = Vector(point.x, point.y, 0)
+    local a2 = Vector(a.x, a.y, 0)
+    local b2 = Vector(b.x, b.y, 0)
+    local ab = b2 - a2
+    local abLenSq = ab:Dot(ab)
+    if abLenSq <= 0.0001 then
+        return (p2 - a2):Length(), a2
+    end
+    local t = (p2 - a2):Dot(ab) / abLenSq
+    t = math.Clamp(t, 0, 1)
+    local projection = a2 + ab * t
+    local dist = (p2 - projection):Length()
+    return dist, projection
+end
 local weaponListPanel
 -- Asegurar sincronización inicial: pedir la lista actual al servidor si tenemos permisos
 timer.Simple(0, function()
@@ -332,6 +358,8 @@ local function UpdateEventPanel(active, eventStarter, timeLimit, startTime)
     if active then
         GUNGAME.EventTimeLeft = timeLimit or 0
         GUNGAME.EventStartTime = startTime or CurTime()
+    else
+        GUNGAME.EventBoundaryPoints = {}
     end
 end
 
@@ -354,6 +382,55 @@ end)
 -- Server tells us if we are participating or not
 net.Receive("gungame_participation", function()
     GUNGAME.IsParticipant = net.ReadBool()
+end)
+
+net.Receive("gungame_boundary", function()
+    local count = net.ReadUInt(8)
+    local points = {}
+    for i = 1, count do
+        points[i] = net.ReadVector()
+    end
+    GUNGAME.EventBoundaryPoints = points
+end)
+
+hook.Add("PostDrawTranslucentRenderables", "GunGame_DrawBoundaryWalls", function(_, skybox)
+    if skybox then return end
+    if not GUNGAME.EventActive then return end
+    local points = GUNGAME.EventBoundaryPoints
+    if not points or #points < 3 then return end
+
+    local ply = LocalPlayer()
+    if not IsValid(ply) or not ply:Alive() then return end
+
+    local plyPos = ply:GetPos()
+    if not GUNGAME.PointInPoly2D(plyPos, points) then return end
+
+    render.SetMaterial(boundaryMaterial)
+
+    local baseZ = plyPos.z - boundaryHeight
+    local heightVec = Vector(0, 0, boundaryHeight * 2)
+
+    for i = 1, #points do
+        local a = points[i]
+        local b = points[(i % #points) + 1]
+        local dist = select(1, DistanceToSegment2D(plyPos, a, b))
+        if dist then
+            if dist < boundaryVisibilityDistance then
+                local alphaFactor = 1 - (dist / boundaryVisibilityDistance)
+                alphaFactor = math.Clamp(alphaFactor ^ 1.35, 0, 1)
+                local alpha = math.floor(alphaFactor * boundaryMaxAlpha)
+                if alpha > 0 then
+                    local color = Color(255, 40, 40, alpha)
+                    local bottomLeft = Vector(a.x, a.y, baseZ)
+                    local bottomRight = Vector(b.x, b.y, baseZ)
+                    local topLeft = bottomLeft + heightVec
+                    local topRight = bottomRight + heightVec
+                    render.DrawQuad(topLeft, topRight, bottomRight, bottomLeft, color)
+                    render.DrawQuad(topRight, topLeft, bottomLeft, bottomRight, color)
+                end
+            end
+        end
+    end
 end)
 
 -- El bloqueo de F4 se maneja globalmente en autorun (uat_gungame_blockf4.lua) para evitar duplicados.
