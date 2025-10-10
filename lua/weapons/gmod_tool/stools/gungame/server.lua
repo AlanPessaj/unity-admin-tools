@@ -1241,8 +1241,8 @@ net.Receive("gungame_start_event", function(_, ply)
             time_limit_timer = nil
         end
         
-        -- Crear un temporizador para la notificación de 10 segundos
-        local warningTime = GUNGAME.TimeLimit - 15
+        -- Crear un temporizador para la notificación de 30 segundos
+        local warningTime = GUNGAME.TimeLimit - 30
         if warningTime > 0 then
             timer.Create("GunGame_10SecWarning", warningTime, 1, function()
                 if gungame_event_active and not has_winner then
