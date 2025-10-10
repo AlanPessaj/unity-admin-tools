@@ -405,6 +405,15 @@ local function CountActiveGunGamePlayers()
     return count
 end
 
+hook.Add("ShowSpare2", "GunGame_BlockF4_Server", function(ply)
+    if not gungame_event_active then return end
+    local sid = GetSteamID64Safe(ply)
+    if not sid then return end
+    if not gungame_players[sid] then return end
+    ply:SendLua([[notification.AddLegacy("No puedes abrir el menú F4 durante el evento.", NOTIFY_ERROR, 1) surface.PlaySound("buttons/button10.wav")]])
+    return false
+end)
+
 -- Notifica a todos los jugadores del evento y también al iniciador (event_starter)
 -- aunque éste no esté participando (no esté en gungame_players)
 local function NotifyGunGamePlayers(message, filterFn)
