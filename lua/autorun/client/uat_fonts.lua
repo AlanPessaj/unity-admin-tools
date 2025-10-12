@@ -24,6 +24,7 @@ if CLIENT then
         CreateUATFont("UAT_Circular_20", 20, 600)
         CreateUATFont("UAT_Circular_24", 24, 600)
         CreateUATFont("UAT_Circular_32", 32, 700)
+        CreateUATFont("UAT_Circular_48", 48, 800)
     end
     
     -- Optionally call once early (best-effort). UI modules will call UAT_EnsureFonts() again before use.
