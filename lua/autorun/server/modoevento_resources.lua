@@ -12,5 +12,4 @@ if SERVER then
         resource.AddFile("sound/" .. rel)
         util.PrecacheSound(rel)
     end
-    print("[Modo Evento] Registrados sonidos para descarga (autorun): ", table.concat(sounds, ", "))
 end

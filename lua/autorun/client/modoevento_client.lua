@@ -19,8 +19,6 @@ local function playEventSound(isStarting)
         surface.PlaySound(mp3Rel)
         return
     end
-
-    print("[Modo Evento] Sonidos no encontrados en cliente (WAV/MP3):", wavPath, mp3Path)
 end
 
 net.Receive("MODO_EVENTO_Toggle", function()

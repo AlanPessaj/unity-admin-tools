@@ -50,7 +50,7 @@ local function createToggleButton(panel)
         local actionText = shouldActivate and "activar" or "desactivar"
 
         Derma_Query(
-            "Estas seguro de " .. actionText .. " el modo evento?",
+            "¿Estas seguro de " .. actionText .. " el modo evento?",
             "[CGO] Modo Evento",
             "Si",
             function()

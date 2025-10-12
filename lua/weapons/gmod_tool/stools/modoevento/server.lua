@@ -17,9 +17,6 @@ if SERVER then
 
     local addedStart = addIfExists(EVENT_BASE_START .. ".wav") or addIfExists(EVENT_BASE_START .. ".mp3")
     local addedStop  = addIfExists(EVENT_BASE_STOP  .. ".wav") or addIfExists(EVENT_BASE_STOP  .. ".mp3")
-    if not addedStart or not addedStop then
-        print("[Modo Evento] Aviso: no se encontró alguno de los sonidos en server para registrar (start/stop)")
-    end
 end
 
 MODO_EVENTO.IsActive = (CH_Purge and CH_Purge.PhasePaused) or MODO_EVENTO.IsActive or false
@@ -55,7 +52,7 @@ local function CanPausePurge()
     end
 
     if CH_Purge.CurrentPhase ~= 0 then
-        return false, "Solo se puede pausar cuando la purga está en reposo."
+        return false, "No puede iniciarse durante la purga."
     end
 
     if CH_Purge.Config.PurgeMode ~= "Interval" and CH_Purge.CurrentPhase == 0 then
@@ -77,7 +74,6 @@ local function PausePurge(ply)
     end
 
     if CH_Purge.PausePhaseTimer() then
-        NotifyPlayer(ply, "Temporizador de la purga pausado.")
         return true
     end
 
@@ -97,7 +93,6 @@ local function ResumePurge(ply)
     end
 
     if CH_Purge.ResumePhaseTimer() then
-        NotifyPlayer(ply, "Temporizador de la purga reanudado.")
         return true
     end
 
