@@ -2,15 +2,9 @@
 
 MODO_EVENTO = MODO_EVENTO or {}
 
-local function sanitize(path)
-    return string.Replace(path, "\\", "/")
-end
-
 local function playEventSound(isStarting)
     local wavRel = isStarting and "modoevento/start/eventstartsfx.wav" or "modoevento/stop/eventstopsfx.wav"
-    wavRel = sanitize(wavRel)
     local mp3Rel = isStarting and "modoevento/start/eventstartsfx.mp3" or "modoevento/stop/eventstopsfx.mp3"
-    mp3Rel = sanitize(mp3Rel)
 
     local wavPath = "sound/" .. wavRel
     local mp3Path = "sound/" .. mp3Rel
