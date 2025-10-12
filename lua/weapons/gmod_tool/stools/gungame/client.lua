@@ -305,9 +305,8 @@ local function UpdateEventPanel(active, eventStarter, timeLimit, startTime)
         GUNGAME.EventPanel:SetPos(20, 20)
         GUNGAME.EventPanel:SetDrawBackground(true)
         GUNGAME.EventPanel.Paint = function(self, w, h)
-            draw.RoundedBox(8, 0, 0, w, h, Color(0, 0, 0, 200))
-            surface.SetDrawColor(0, 0, 255, 150)
-            surface.DrawOutlinedRect(0, 0, w, h, 2)
+            draw.RoundedBox(8, 0, 0, w, h, Color(0, 0, 255, 150))
+            draw.RoundedBox(8, 2, 2, w - 4, h - 4, Color(0, 0, 0, 200))
         end
         
         -- Título centrado
