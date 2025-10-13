@@ -1,6 +1,8 @@
 -- Autorun cliente para Modo Evento: gestiona los net messages y reproduce el sonido en TODOS los clientes
 
 MODO_EVENTO = MODO_EVENTO or {}
+MODO_EVENTO.SpawnPoints = MODO_EVENTO.SpawnPoints or {}
+MODO_EVENTO.IsParticipant = MODO_EVENTO.IsParticipant or false
 
 if UAT_EnsureFonts then
     UAT_EnsureFonts()
@@ -80,9 +82,26 @@ net.Receive("MODO_EVENTO_Toggle", function()
             MODO_EVENTO.ActiveButton:InvalidateLayout(true)
         end
     end
+
+    if MODO_EVENTO.UpdateUIState then
+        MODO_EVENTO.UpdateUIState()
+    end
 end)
 
 net.Receive("MODO_EVENTO_Sound", function()
     local isStarting = net.ReadBool()
     playEventSound(isStarting)
+end)
+
+net.Receive("MODO_EVENTO_UpdateSpawnpoints", function()
+    local spawnPoints = net.ReadTable() or {}
+    MODO_EVENTO.SpawnPoints = spawnPoints
+    if MODO_EVENTO.UpdateUIState then
+        MODO_EVENTO.UpdateUIState()
+    end
+end)
+
+net.Receive("MODO_EVENTO_Participation", function()
+    local isParticipant = net.ReadBool()
+    MODO_EVENTO.IsParticipant = isParticipant
 end)
