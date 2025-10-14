@@ -136,6 +136,16 @@ local function ResumePurge(ply)
     return false
 end
 
+local function CountHumanPlayers()
+    local count = 0
+    for _, client in ipairs(player.GetAll()) do
+        if IsValid(client) and not client:IsBot() then
+            count = count + 1
+        end
+    end
+    return count
+end
+
 local function ResetParticipants()
     for sid, data in pairs(MODO_EVENTO.Participants or {}) do
         if data and IsValid(data.player) then
@@ -348,6 +358,14 @@ net.Receive("MODO_EVENTO_Toggle", function(_, ply)
 
         if not MODO_EVENTO.SpawnPoints or #MODO_EVENTO.SpawnPoints == 0 then
             NotifyPlayer(ply, "Debes agregar al menos un spawnpoint antes de iniciar el evento.")
+            net.Start("MODO_EVENTO_Toggle")
+                net.WriteBool(false)
+            net.Send(ply)
+            return
+        end
+
+        if CountHumanPlayers() <= 1 then
+            NotifyPlayer(ply, "Necesitas al menos otro jugador conectado para iniciar el evento.")
             net.Start("MODO_EVENTO_Toggle")
                 net.WriteBool(false)
             net.Send(ply)

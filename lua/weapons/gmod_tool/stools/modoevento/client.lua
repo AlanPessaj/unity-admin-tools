@@ -111,7 +111,7 @@ local function requirementsText()
     local pieces = {}
     table.insert(pieces, "Título: " .. (hasTitle() and "OK" or "Pendiente"))
     table.insert(pieces, "Spawnpoints: " .. (hasSpawnpoints() and "OK" or "Pendiente"))
-    return "Requisitos -> " .. table.concat(pieces, " | ")
+    return table.concat(pieces, " | ")
 end
 
 function MODO_EVENTO.UpdateUIState()
@@ -241,16 +241,8 @@ function MODO_EVENTO.BuildPanel(panel)
     btnClearSpawns:Dock(TOP)
     btnClearSpawns:DockMargin(0, 0, 0, 12)
     btnClearSpawns.DoClick = function()
-        Derma_Query(
-            "¿Seguro que deseas borrar todos los spawnpoints del modo evento?",
-            "[CGO] Modo Evento",
-            "Sí",
-            function()
-                net.Start("MODO_EVENTO_ClearSpawnpoints")
-                net.SendToServer()
-            end,
-            "No"
-        )
+        net.Start("MODO_EVENTO_ClearSpawnpoints")
+        net.SendToServer()
     end
     if panel.AddItem then
         panel:AddItem(btnClearSpawns)

@@ -23,6 +23,10 @@ local overlayBg = Color(18, 18, 20)
 local overlayOutline = Color(0, 150, 255)
 local overlayText = "EVENTO EN CURSO"
 
+local spawnSphereColor = Color(0, 150, 255, 200)
+local spawnCrossColor = Color(255, 255, 255, 200)
+local spawnForwardColor = Color(255, 210, 0, 255)
+
 local function drawOverlay(alpha)
     if alpha <= 1 then return end
 
@@ -104,4 +108,56 @@ end)
 net.Receive("MODO_EVENTO_Participation", function()
     local isParticipant = net.ReadBool()
     MODO_EVENTO.IsParticipant = isParticipant
+end)
+
+local function HasModoEventoTool()
+    local ply = LocalPlayer()
+    if not IsValid(ply) then return false end
+
+    local wep = ply:GetActiveWeapon()
+    if not IsValid(wep) or wep:GetClass() ~= "gmod_tool" then return false end
+
+    local tool = ply:GetTool()
+    if not tool or tool.Mode ~= "modoevento" then return false end
+
+    return true
+end
+
+hook.Add("PostDrawTranslucentRenderables", "MODO_EVENTO_DrawSpawnpoints", function()
+    if not HasModoEventoTool() then return end
+
+    local spawnPoints = MODO_EVENTO.SpawnPoints or {}
+    if #spawnPoints == 0 then return end
+
+    render.SetColorMaterial()
+
+    for _, data in ipairs(spawnPoints) do
+        local pos = data.pos
+        if not isvector(pos) and istable(pos) and pos.x and pos.y and pos.z then
+            pos = Vector(pos.x, pos.y, pos.z)
+        end
+
+        if isvector(pos) then
+            local ang = data.ang
+            if not isangle(ang) and istable(ang) and ang.p and ang.y and ang.r then
+                ang = Angle(ang.p, ang.y, ang.r)
+            elseif not isangle(ang) then
+                ang = Angle(0, 0, 0)
+            end
+
+            render.DrawSphere(pos, 10, 16, 16, spawnSphereColor)
+
+            local size = 10
+            render.DrawLine(pos + Vector(-size, 0, 0), pos + Vector(size, 0, 0), spawnCrossColor, true)
+            render.DrawLine(pos + Vector(0, -size, 0), pos + Vector(0, size, 0), spawnCrossColor, true)
+            render.DrawLine(pos + Vector(0, 0, -size), pos + Vector(0, 0, size), spawnCrossColor, true)
+
+            local forward = ang:Forward() * 20
+            render.DrawLine(pos, pos + forward, spawnForwardColor, true)
+
+            local right = ang:Right() * 5
+            render.DrawLine(pos + forward, pos + forward * 0.7 + right, spawnForwardColor, true)
+            render.DrawLine(pos + forward, pos + forward * 0.7 - right, spawnForwardColor, true)
+        end
+    end
 end)
