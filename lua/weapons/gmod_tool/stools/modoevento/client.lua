@@ -131,6 +131,18 @@ function MODO_EVENTO.UpdateUIState()
     if IsValid(MODO_EVENTO.ActiveButton) then
         updateButtonVisual(MODO_EVENTO.ActiveButton)
     end
+
+    if IsValid(MODO_EVENTO.ReminderButton) then
+        local btn = MODO_EVENTO.ReminderButton
+        local shouldShow = MODO_EVENTO.IsActive
+        btn:SetVisible(shouldShow)
+        if not shouldShow then
+            btn.Cooldown = nil
+            btn:SetEnabled(false)
+        else
+            btn:SetEnabled(not btn.Cooldown)
+        end
+    end
 end
 
 function MODO_EVENTO.BuildPanel(panel)
@@ -256,12 +268,45 @@ function MODO_EVENTO.BuildPanel(panel)
     end
 
     local button = createToggleButton(panel)
-    button:DockMargin(0, 8, 0, 8)
+    button:DockMargin(0, 8, 0, 4)
     if panel.AddItem then
         panel:AddItem(button)
     else
         button:SetParent(panel)
     end
+
+    local reminderButton = vgui.Create("DButton", panel)
+    reminderButton:SetText("Enviar aviso")
+    reminderButton:SetFont(smallFont)
+    reminderButton:SetTall(28)
+    reminderButton:Dock(TOP)
+    reminderButton:DockMargin(0, 0, 0, 12)
+    reminderButton:SetVisible(false)
+    reminderButton:SetEnabled(false)
+    reminderButton.DoClick = function(btn)
+        if btn.Cooldown then return end
+
+        btn.Cooldown = true
+        btn:SetEnabled(false)
+
+        net.Start("MODO_EVENTO_RequestVoteReminder")
+        net.SendToServer()
+        surface.PlaySound("buttons/button15.wav")
+
+        timer.Simple(2, function()
+            if not IsValid(btn) then return end
+            btn.Cooldown = nil
+            if MODO_EVENTO.IsActive then
+                btn:SetEnabled(true)
+            end
+        end)
+    end
+    if panel.AddItem then
+        panel:AddItem(reminderButton)
+    else
+        reminderButton:SetParent(panel)
+    end
+    MODO_EVENTO.ReminderButton = reminderButton
 
     MODO_EVENTO.UpdateUIState()
 end

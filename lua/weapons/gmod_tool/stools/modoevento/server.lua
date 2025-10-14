@@ -15,6 +15,7 @@ if SERVER then
     util.AddNetworkString("MODO_EVENTO_ClearSpawnpoints")
     util.AddNetworkString("MODO_EVENTO_UpdateSpawnpoints")
     util.AddNetworkString("MODO_EVENTO_Participation")
+    util.AddNetworkString("MODO_EVENTO_RequestVoteReminder")
 
     local function addIfExists(rel)
         if file.Exists("sound/" .. rel, "GAME") then
@@ -146,6 +147,16 @@ local function CountHumanPlayers()
     return count
 end
 
+local function IsGovernmentJob(ply)
+    if not IsValid(ply) or not RPExtraTeams then return false end
+
+    local jobData = RPExtraTeams[ply:Team()]
+    if not jobData or not jobData.category then return false end
+
+    local category = string.Trim(jobData.category)
+    return string.lower(category) == "gubernamentales"
+end
+
 local function ResetParticipants()
     for sid, data in pairs(MODO_EVENTO.Participants or {}) do
         if data and IsValid(data.player) then
@@ -174,9 +185,19 @@ end
 
 local function IsParticipant(ply)
     if not IsValid(ply) then return false end
-    local sid = ply:SteamID64()
+  	local sid = ply:SteamID64()
     if not sid then return false end
     return MODO_EVENTO.Participants and MODO_EVENTO.Participants[sid] ~= nil
+end
+
+local function GetPendingParticipants(exclude)
+    local pending = {}
+    for _, client in ipairs(player.GetAll()) do
+        if IsValid(client) and not client:IsBot() and client ~= exclude and not IsParticipant(client) then
+            table.insert(pending, client)
+        end
+    end
+    return pending
 end
 
 local function GetBestSpawnPoint(ply)
@@ -227,6 +248,11 @@ local function AddParticipant(ply)
     if not IsValid(ply) then return false end
     local sid = ply:SteamID64()
     if not sid or IsParticipant(ply) then return false end
+
+    if IsGovernmentJob(ply) then
+        NotifyPlayer(ply, "No puedes participar en el evento con tu trabajo actual.")
+        return false
+    end
 
     local spawn = GetBestSpawnPoint(ply)
     if not spawn then
@@ -407,6 +433,34 @@ net.Receive("MODO_EVENTO_Toggle", function(_, ply)
 			net.Send(ply)
 		end
 	end
+end)
+
+net.Receive("MODO_EVENTO_RequestVoteReminder", function(_, ply)
+    if not MODO_EVENTO.HasAccess or not MODO_EVENTO.HasAccess(ply) then
+        return
+    end
+
+    if not MODO_EVENTO.IsActive then
+        NotifyPlayer(ply, "El evento no está activo.")
+        return
+    end
+
+    local pending = GetPendingParticipants(ply)
+    if #pending == 0 then
+        NotifyPlayer(ply, "Todos los jugadores ya respondieron o participan.")
+        return
+    end
+
+    local currentTitle = MODO_EVENTO.CurrentTitle
+    if currentTitle == "" then
+        currentTitle = "Evento"
+    end
+
+    if StartParticipationVote(ply, currentTitle) then
+        NotifyPlayer(ply, "Se reenviaron las invitaciones al evento.")
+    else
+        NotifyPlayer(ply, "No se pudo reenviar la votación en este momento.")
+    end
 end)
 
 hook.Add("PlayerInitialSpawn", "ModoEventoSync", function(ply)
