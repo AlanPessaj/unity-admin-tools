@@ -38,7 +38,7 @@ local lastSoundState = MODO_EVENTO.IsActive
 
 local function NotifyPlayer(ply, msg)
     if not IsValid(ply) then return end
-    ply:ChatPrint("[Modo Evento] " .. msg)
+    ply:ChatPrint("[Evento] " .. msg)
 end
 
 local function ReadOptionalString()
