@@ -132,6 +132,12 @@ function MODO_EVENTO.UpdateUIState()
         updateButtonVisual(MODO_EVENTO.ActiveButton)
     end
 
+    if IsValid(MODO_EVENTO.TitleEntry) then
+        local locked = MODO_EVENTO.IsActive
+        MODO_EVENTO.TitleEntry:SetEnabled(not locked)
+        MODO_EVENTO.TitleEntry:SetEditable(not locked)
+    end
+
     if IsValid(MODO_EVENTO.ReminderButton) then
         local btn = MODO_EVENTO.ReminderButton
         local shouldShow = MODO_EVENTO.IsActive
@@ -170,13 +176,28 @@ function MODO_EVENTO.BuildPanel(panel)
     titleEntry:SetPlaceholderText("Ingresa un título descriptivo")
     titleEntry:SetText(MODO_EVENTO.EventTitle or "")
     titleEntry.OnValueChange = function(self, value)
-        MODO_EVENTO.EventTitle = value or ""
+        if MODO_EVENTO.IsActive then return end
+        local trimmed = value or ""
+        if #trimmed > 64 then
+            trimmed = string.sub(trimmed, 1, 64)
+            self:SetText(trimmed)
+            self:SetCaretPos(#trimmed)
+        end
+        MODO_EVENTO.EventTitle = trimmed
         MODO_EVENTO.UpdateUIState()
+    end
+    titleEntry:SetEnabled(not MODO_EVENTO.IsActive)
+    titleEntry:SetEditable(not MODO_EVENTO.IsActive)
+    titleEntry.OnRemove = function()
+        if MODO_EVENTO.TitleEntry == titleEntry then
+            MODO_EVENTO.TitleEntry = nil
+        end
     end
 
     if panel.AddItem then
         panel:AddItem(titleEntry)
     end
+    MODO_EVENTO.TitleEntry = titleEntry
 
     local requirementsLabel = vgui.Create("DLabel", panel)
     requirementsLabel:SetFont(smallFont)

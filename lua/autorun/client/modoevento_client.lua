@@ -3,6 +3,11 @@
 MODO_EVENTO = MODO_EVENTO or {}
 MODO_EVENTO.SpawnPoints = MODO_EVENTO.SpawnPoints or {}
 MODO_EVENTO.IsParticipant = MODO_EVENTO.IsParticipant or false
+MODO_EVENTO.EventTitle = MODO_EVENTO.EventTitle or ""
+MODO_EVENTO.DisplayTitle = MODO_EVENTO.DisplayTitle or ""
+MODO_EVENTO.TitleEntry = MODO_EVENTO.TitleEntry or nil
+MODO_EVENTO.ParticipantNames = MODO_EVENTO.ParticipantNames or {}
+MODO_EVENTO.OrganizerName = MODO_EVENTO.OrganizerName or ""
 
 if UAT_EnsureFonts then
     UAT_EnsureFonts()
@@ -41,7 +46,8 @@ local function drawOverlay(alpha)
     local bgColor = Color(overlayBg.r, overlayBg.g, overlayBg.b, math.Clamp(alpha, 0, 200))
     local outlineColor = Color(overlayOutline.r, overlayOutline.g, overlayOutline.b, math.Clamp(alpha + 40, 0, 255))
 
-    draw.RoundedBox(12, x, y, boxW, boxH, bgColor)
+    surface.SetDrawColor(bgColor)
+    surface.DrawRect(x, y, boxW, boxH)
     surface.SetDrawColor(outlineColor)
     surface.DrawOutlinedRect(x, y, boxW, boxH, 2)
 
@@ -108,6 +114,32 @@ end)
 net.Receive("MODO_EVENTO_Participation", function()
     local isParticipant = net.ReadBool()
     MODO_EVENTO.IsParticipant = isParticipant
+end)
+
+net.Receive("MODO_EVENTO_SyncParticipants", function()
+    local organizerName = net.ReadString() or ""
+    local eventTitle = net.ReadString() or ""
+    local count = net.ReadUInt(8) or 0
+    local names = {}
+
+    for i = 1, count do
+        names[i] = net.ReadString() or ""
+    end
+
+    MODO_EVENTO.OrganizerName = organizerName
+    MODO_EVENTO.DisplayTitle = eventTitle
+    MODO_EVENTO.ParticipantNames = names
+
+    if eventTitle ~= "" then
+        MODO_EVENTO.EventTitle = eventTitle
+        if IsValid(MODO_EVENTO.TitleEntry) then
+            MODO_EVENTO.TitleEntry:SetText(eventTitle)
+        end
+    end
+
+    if MODO_EVENTO.UpdateUIState then
+        MODO_EVENTO.UpdateUIState()
+    end
 end)
 
 local function HasModoEventoTool()

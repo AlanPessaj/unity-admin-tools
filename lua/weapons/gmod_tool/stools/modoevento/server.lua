@@ -7,6 +7,8 @@ MODO_EVENTO.SpawnPoints = MODO_EVENTO.SpawnPoints or {}
 MODO_EVENTO.Participants = MODO_EVENTO.Participants or {}
 MODO_EVENTO.CurrentTitle = MODO_EVENTO.CurrentTitle or ""
 MODO_EVENTO.CurrentVote = MODO_EVENTO.CurrentVote or nil
+MODO_EVENTO.Organizer = MODO_EVENTO.Organizer or nil
+MODO_EVENTO.OrganizerName = MODO_EVENTO.OrganizerName or ""
 
 if SERVER then
     util.AddNetworkString("MODO_EVENTO_Toggle")
@@ -16,6 +18,7 @@ if SERVER then
     util.AddNetworkString("MODO_EVENTO_UpdateSpawnpoints")
     util.AddNetworkString("MODO_EVENTO_Participation")
     util.AddNetworkString("MODO_EVENTO_RequestVoteReminder")
+    util.AddNetworkString("MODO_EVENTO_SyncParticipants")
 
     local function addIfExists(rel)
         if file.Exists("sound/" .. rel, "GAME") then
@@ -157,6 +160,48 @@ local function IsGovernmentJob(ply)
     return string.lower(category) == "gubernamentales"
 end
 
+local function BroadcastParticipants(target)
+    local organizerName = MODO_EVENTO.OrganizerName or ""
+    local eventTitle = MODO_EVENTO.CurrentTitle or ""
+    local entries = {}
+
+    for _, data in pairs(MODO_EVENTO.Participants or {}) do
+        local name
+        if data then
+            name = data.name
+            if (not name or name == "") and IsValid(data.player) then
+                name = data.player:Nick()
+            end
+        end
+
+        if name and name ~= "" then
+            table.insert(entries, {
+                name = name,
+                joinedAt = data and data.joinedAt or 0
+            })
+        end
+    end
+
+    table.sort(entries, function(a, b)
+        return (a.joinedAt or 0) < (b.joinedAt or 0)
+    end)
+
+    local count = math.min(#entries, 255)
+
+    net.Start("MODO_EVENTO_SyncParticipants")
+        net.WriteString(organizerName)
+        net.WriteString(eventTitle)
+        net.WriteUInt(count, 8)
+        for i = 1, count do
+            net.WriteString(entries[i].name or "")
+        end
+    if IsValid(target) then
+        net.Send(target)
+    else
+        net.Broadcast()
+    end
+end
+
 local function ResetParticipants()
     for sid, data in pairs(MODO_EVENTO.Participants or {}) do
         if data and IsValid(data.player) then
@@ -181,6 +226,7 @@ local function RemoveParticipantBySteamID(sid)
     end
 
     MODO_EVENTO.Participants[sid] = nil
+    BroadcastParticipants()
 end
 
 local function IsParticipant(ply)
@@ -192,8 +238,9 @@ end
 
 local function GetPendingParticipants(exclude)
     local pending = {}
+    local organizer = MODO_EVENTO.Organizer
     for _, client in ipairs(player.GetAll()) do
-        if IsValid(client) and not client:IsBot() and client ~= exclude and not IsParticipant(client) then
+        if IsValid(client) and not client:IsBot() and client ~= exclude and client ~= organizer and not IsParticipant(client) then
             table.insert(pending, client)
         end
     end
@@ -267,6 +314,7 @@ local function AddParticipant(ply)
 
     MODO_EVENTO.Participants[sid] = {
         player = ply,
+        name = ply:Nick(),
         joinedAt = CurTime(),
         spawn = spawn
     }
@@ -275,6 +323,8 @@ local function AddParticipant(ply)
         net.WriteBool(true)
     net.Send(ply)
 
+    BroadcastParticipants()
+
     return true
 end
 
@@ -282,6 +332,11 @@ local function BuildVoteExclude(starter)
     local exclude = {}
     if IsValid(starter) then
         exclude[starter] = true
+    end
+
+    local organizer = MODO_EVENTO.Organizer
+    if IsValid(organizer) then
+        exclude[organizer] = true
     end
 
     for _, ply in ipairs(player.GetAll()) do
@@ -374,6 +429,9 @@ net.Receive("MODO_EVENTO_Toggle", function(_, ply)
 
     if requestedState then
         requestedTitle = string.Trim(requestedTitle or "")
+        if #requestedTitle > 64 then
+            requestedTitle = string.sub(requestedTitle, 1, 64)
+        end
         if requestedTitle == "" then
             NotifyPlayer(ply, "Debes ingresar un título para iniciar el evento.")
             net.Start("MODO_EVENTO_Toggle")
@@ -411,7 +469,10 @@ net.Receive("MODO_EVENTO_Toggle", function(_, ply)
 
 			MODO_EVENTO.IsActive = true
             MODO_EVENTO.CurrentTitle = requestedTitle
+            MODO_EVENTO.Organizer = ply
+            MODO_EVENTO.OrganizerName = IsValid(ply) and ply:Nick() or ""
             ResetParticipants()
+            BroadcastParticipants()
 			hook.Run("ModoEventoToggled", true, ply)
 			MODO_EVENTO.BroadcastState()
 		else
@@ -424,7 +485,10 @@ net.Receive("MODO_EVENTO_Toggle", function(_, ply)
 			MODO_EVENTO.IsActive = false
             MODO_EVENTO.CurrentTitle = ""
             MODO_EVENTO.CurrentVote = nil
+            MODO_EVENTO.Organizer = nil
+            MODO_EVENTO.OrganizerName = ""
             ResetParticipants()
+            BroadcastParticipants()
 			hook.Run("ModoEventoToggled", false, ply)
 			MODO_EVENTO.BroadcastState()
 		else
@@ -474,6 +538,8 @@ hook.Add("PlayerInitialSpawn", "ModoEventoSync", function(ply)
         net.Start("MODO_EVENTO_Participation")
             net.WriteBool(IsParticipant(ply))
         net.Send(ply)
+
+        BroadcastParticipants(ply)
     end)
 end)
 
@@ -481,8 +547,31 @@ timer.Simple(0, function()
     if MODO_EVENTO.BroadcastState then
         MODO_EVENTO.BroadcastState()
     end
+
+    BroadcastParticipants()
 end)
 
 hook.Add("PlayerDisconnected", "ModoEvento_RemoveParticipant", function(ply)
-    RemoveParticipantBySteamID(ply and ply:SteamID64())
+    local sid64 = IsValid(ply) and ply:SteamID64() or nil
+    if sid64 then
+        RemoveParticipantBySteamID(sid64)
+    end
+
+    if not IsValid(ply) then return end
+
+    local shouldBroadcast = false
+
+    if MODO_EVENTO.Organizer == ply then
+        MODO_EVENTO.Organizer = nil
+        shouldBroadcast = true
+    end
+
+    if MODO_EVENTO.OrganizerName ~= "" and ply:Nick() == MODO_EVENTO.OrganizerName then
+        MODO_EVENTO.OrganizerName = ""
+        shouldBroadcast = true
+    end
+
+    if shouldBroadcast then
+        BroadcastParticipants()
+    end
 end)
